@@ -1,0 +1,47 @@
+import { ShowView, ShowViewHeader } from '@/components/refine-ui/views/show-view'
+import React, { useEffect, useState } from 'react'
+import { useParams } from 'react-router';
+
+
+interface Election {
+  election_id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  description?: string;
+}
+
+const ElectionDetailsAD = () => {
+  const { id } = useParams(); // get the :id from the URL
+  const [election, setElection] = useState<Election | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    setLoading(true);
+    fetch(`http://localhost:3001/api/election/${id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch election");
+        return res.json();
+      })
+      .then((data) => setElection(data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+    if (loading) return <p>Loading...</p>;
+    if (error) return <p className="text-red-600">{error}</p>;
+    if (!election) return <p>No election found</p>;
+
+  return (
+    <ShowView>
+      <ShowViewHeader/>
+      {election.name}
+    </ShowView>
+  )
+}
+
+export default ElectionDetailsAD
