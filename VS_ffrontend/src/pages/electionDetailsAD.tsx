@@ -1,4 +1,5 @@
 import { ShowView, ShowViewHeader } from '@/components/refine-ui/views/show-view'
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router';
 
@@ -39,7 +40,16 @@ const ElectionDetailsAD = () => {
   return (
     <ShowView>
       <ShowViewHeader/>
-      {election.name}
+      <Card>
+        <CardHeader>
+          {election.name}
+        </CardHeader>
+        <CardContent>
+          <p className='text-slate-500'>{election.start_date}</p>
+          <p className='text-slate-500'>{election.end_date}</p>
+          <p>{election.status}</p>
+        </CardContent>
+      </Card>
     </ShowView>
   )
 }
