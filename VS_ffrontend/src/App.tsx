@@ -12,12 +12,12 @@ import { Toaster } from "./components/refine-ui/notification/toaster";
 import { useNotificationProvider } from "./components/refine-ui/notification/use-notification-provider";
 import { ThemeProvider } from "./components/refine-ui/theme/theme-provider";
 import { dataProvider } from "./providers/data";
-import Dashboard from "./pages/dashboard";
+import Dashboard from "./pages/dashboardav";
 import { Home, Users } from "lucide-react";
 import { Layout } from "./components/refine-ui/layout/layout";
-import VoterList from "./pages/voterlist";
 import CreateElection from "./pages/createElection";
 import ElectionDetailsAD from "./pages/electionDetailsAD";
+import UserList from "./pages/userList";
 
 
 function App() {
@@ -51,7 +51,7 @@ function App() {
               ]}
             >
               <Routes>
-                <Route element = {<Layout Title={({ collapsed }) => <div>{collapsed ? "S" : "Something"}</div>}>
+                <Route element = {<Layout >
                   <Outlet/>
                   </Layout> }>
                 
@@ -61,7 +61,7 @@ function App() {
                     <Route path="/homeAdmin/showElection/:id" element={<ElectionDetailsAD/>}/>
                   </Route>
                   <Route path="/userslist">
-                    <Route index element={<VoterList/>}/>
+                    <Route index element={<UserList/>}/>
                   </Route>
                 </Route>
               </Routes>

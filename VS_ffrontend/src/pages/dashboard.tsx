@@ -1,6 +1,7 @@
 import ElectionCard from '@/components/custom/election_show_card';
 import { ShowButton } from '@/components/refine-ui/buttons/show';
 import { ListView, ListViewHeader } from '@/components/refine-ui/views/list-view';
+import { Spinner } from '@/components/ui/spinner';
 import React, { useEffect, useState } from 'react'
 
 const Dashboard = () => {
@@ -27,7 +28,7 @@ const Dashboard = () => {
       </div>
         {error && <pre className="text-red-600">{error}</pre>}
 
-        {!data && !error && <p>Loading...</p>}
+        {!data && !error && <div className='flex gap-3'><Spinner className='size-6'/> Loading...</div>}
 
         {data &&
           data.map((election)=>(

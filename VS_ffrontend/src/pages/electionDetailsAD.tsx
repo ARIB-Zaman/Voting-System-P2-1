@@ -42,12 +42,13 @@ const ElectionDetailsAD = () => {
       <ShowViewHeader/>
       <Card>
         <CardHeader>
-          {election.name}
+          <h1 className='text-3xl font-bold'>{election.name}</h1>
+          <p>{election.status}</p>
         </CardHeader>
         <CardContent>
           <p className='text-slate-500'>{election.start_date}</p>
           <p className='text-slate-500'>{election.end_date}</p>
-          <p>{election.status}</p>
+          
         </CardContent>
       </Card>
     </ShowView>

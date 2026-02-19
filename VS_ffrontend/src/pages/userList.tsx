@@ -1,7 +1,7 @@
 import { ListView, ListViewHeader } from '@/components/refine-ui/views/list-view'
 import React from 'react'
 
-const VoterList = () => {
+const UserList = () => {
   return (
     <ListView>
       <ListViewHeader/>
@@ -9,4 +9,4 @@ const VoterList = () => {
   )
 }
 
-export default VoterList
+export default UserList
