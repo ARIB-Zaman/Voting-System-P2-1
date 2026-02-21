@@ -12,18 +12,19 @@ router.get("/", async (req, res) => {
     }
 });
 
-// POST new user
+// POST new election
 router.post("/", async (req, res) => {
     const { name, description, start_date, end_date, status } = req.body;
 
     try {
-        
-        await pool.query(
-            "INSERT INTO election (name, start_date, end_date, status) VALUES ($1, $2, $3, $4)",
-            [name, start_date, end_date, status]   // prevents SQL injection
+        const result = await pool.query(
+            `INSERT INTO election (name, start_date, end_date, status)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
+            [name, start_date, end_date, status]
         );
-        
-        res.status(201).json({ message: `election added ${name} ${description} ${start_date} ${end_date} ${status}`});
+
+        res.status(201).json(result.rows[0]); 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
