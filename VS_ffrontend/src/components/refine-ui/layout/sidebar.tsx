@@ -24,14 +24,34 @@ import { cn } from "@/lib/utils";
 import {
   useLink,
   useMenu,
+  useGetIdentity,
   type TreeMenuItem,
 } from "@refinedev/core";
 import { ChevronRight, ListIcon, Origami } from "lucide-react";
 import React from "react";
 
+interface Identity {
+  role?: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Admin Hub",
+  RO: "RO Portal",
+  PO: "PO Portal",
+};
+
 export function Sidebar() {
   const { open } = useShadcnSidebar();
   const { menuItems, selectedKey } = useMenu();
+  const { data: identity } = useGetIdentity<Identity>();
+  const userRole = identity?.role ?? 'ADMIN';
+
+  // Filter menu items so each role only sees their own resources
+  const filteredItems = menuItems.filter((item: TreeMenuItem) => {
+    const itemRole = item.meta?.role;
+    if (!itemRole) return true; // no role restriction → show to everyone
+    return itemRole === userRole;
+  });
 
   return (
     <ShadcnSidebar collapsible="icon" className={cn("border-none")}>
@@ -54,7 +74,7 @@ export function Sidebar() {
           }
         )}
       >
-        {menuItems.map((item: TreeMenuItem) => (
+        {filteredItems.map((item: TreeMenuItem) => (
           <SidebarItem
             key={item.key || item.name}
             item={item}
@@ -173,7 +193,7 @@ function SidebarItemDropdown({ item, selectedKey }: MenuItemProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <SidebarButton item={item}  />
+        <SidebarButton item={item} />
       </DropdownMenuTrigger>
       <DropdownMenuContent side="right" align="start">
         {children?.map((child: TreeMenuItem) => {
@@ -209,8 +229,9 @@ function SidebarItemLink({ item, selectedKey }: MenuItemProps) {
 }
 
 function SidebarHeader() {
-  // const { title } = useRefineOptions();
-  const title = {icon: <Origami/>, text: "Admin Hub"}
+  const { data: identity } = useGetIdentity<Identity>();
+  const roleLabel = identity?.role ? (ROLE_LABELS[identity.role] ?? 'Admin Hub') : 'Admin Hub';
+  const title = { icon: <Origami />, text: roleLabel };
   const { open, isMobile } = useShadcnSidebar();
 
   return (

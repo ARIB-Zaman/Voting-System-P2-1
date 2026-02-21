@@ -10,9 +10,20 @@ import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import {
   useActiveAuthProvider,
+  useGetIdentity,
   useLogout,
 } from "@refinedev/core";
 import { LogOutIcon, Origami } from "lucide-react";
+
+interface Identity {
+  role?: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Admin Hub",
+  RO: "RO Portal",
+  PO: "PO Portal",
+};
 
 export const Header = () => {
   const { isMobile } = useSidebar();
@@ -47,8 +58,10 @@ function DesktopHeader() {
 
 function MobileHeader() {
   const { open, isMobile } = useSidebar();
+  const { data: identity } = useGetIdentity<Identity>();
+  const roleLabel = identity?.role ? (ROLE_LABELS[identity.role] ?? 'Admin Hub') : 'Admin Hub';
 
-  const title = {icon: <Origami/>, text: "Admin Hub"}
+  const title = { icon: <Origami />, text: roleLabel }
 
   return (
     <header

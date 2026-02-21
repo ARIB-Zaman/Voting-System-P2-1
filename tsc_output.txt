@@ -1,0 +1,28 @@
+﻿node.exe : npm warn 
+Unknown project config 
+"strict-peer-dependenci
+es". This will stop 
+working in the next 
+major version of npm.
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (npm warn Unkn   
+ ow...version of np    
+m.:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+src/components/custom/election_show_card.tsx(7,24): error TS7031: Binding element 'election' implicitly has an 'any' type.
+src/components/custom/election_show_card.tsx(44,10): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ PLANNED: Element; LIVE: Element; CLOSED: Element; FINALIZED: Element; }'.
