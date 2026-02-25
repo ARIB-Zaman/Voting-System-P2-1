@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Origami, Loader2 } from 'lucide-react';
+import { Link } from 'react-router';
 
 interface Identity {
     role?: string;
@@ -114,6 +115,18 @@ const LoginPage: React.FC = () => {
                         </div>
                         <p className="text-xs text-center text-muted-foreground mt-2">
                             All dev accounts use password: <code className="font-mono">password123</code>
+                        </p>
+                    </div>
+
+                    <div className="mt-4 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            Don't have an account?{' '}
+                            <Link
+                                to="/signup"
+                                className="text-primary font-medium hover:underline"
+                            >
+                                Create an account
+                            </Link>
                         </p>
                     </div>
                 </div>

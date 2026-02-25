@@ -18,6 +18,12 @@ const auth = betterAuth({
         defaultValue: 'PO',
         input: true,
       },
+      approved: {
+        type: 'boolean',
+        required: false,
+        defaultValue: false,
+        input: false, // only set server-side (admin approval)
+      },
     },
   },
 });

@@ -14,14 +14,16 @@ import { ThemeProvider } from './components/refine-ui/theme/theme-provider';
 import { dataProvider } from './providers/data';
 import { authProvider } from './providers/auth-provider';
 import Dashboard from './pages/dashboardav';
-import { CalendarCheck2, Home, MapPin, Users } from 'lucide-react';
+import { CalendarCheck2, ClipboardCheck, Home, MapPin, Users } from 'lucide-react';
 import { Layout } from './components/refine-ui/layout/layout';
 import CreateElection from './pages/createElection';
 import ElectionDetailsAD from './pages/electionDetailsAD';
 import UserList from './pages/userList';
 import LoginPage from './pages/login';
+import SignupPage from './pages/signup';
 import RoDashboard from './pages/ro/roDashboard';
 import PoDashboard from './pages/po/poDashboard';
+import PendingApprovals from './pages/admin/pendingApprovals';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
 function homePathForRole(role?: string): string {
@@ -79,6 +81,11 @@ function App() {
                   list: '/userslist',
                   meta: { label: 'Users', icon: <Users />, role: 'ADMIN' },
                 },
+                {
+                  name: 'pending-approvals',
+                  list: '/homeAdmin/pending',
+                  meta: { label: 'Pending Approvals', icon: <ClipboardCheck />, role: 'ADMIN' },
+                },
                 // ── RO resources ──────────────────────────────────────────────
                 {
                   name: 'ro-elections',
@@ -94,8 +101,9 @@ function App() {
               ]}
             >
               <Routes>
-                {/* ── Public: Login (no Layout/sidebar) ───────────────────── */}
+                {/* ── Public: Login & Signup (no Layout/sidebar) ──────────── */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
 
                 {/* ── Protected routes (all share the same Layout/sidebar) ── */}
                 <Route
@@ -112,6 +120,7 @@ function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="createElection" element={<CreateElection />} />
                     <Route path="showElection/:id" element={<ElectionDetailsAD />} />
+                    <Route path="pending" element={<PendingApprovals />} />
                   </Route>
                   <Route path="/userslist">
                     <Route index element={<UserList />} />
@@ -148,3 +157,4 @@ function App() {
 }
 
 export default App;
+

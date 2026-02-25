@@ -59,6 +59,11 @@ async function migrate() {
     );
   `);
 
+    // Add approved column (idempotent)
+    await pool.query(`
+      ALTER TABLE "user" ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT false;
+    `);
+
     console.log('Tables created (or already exist).');
 }
 
@@ -86,9 +91,9 @@ async function seedUsers() {
             });
 
             if (res && res.user) {
-                // Set the role field (BetterAuth signUpEmail sets it to the default; update it)
-                await pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [u.role, res.user.id]);
-                console.log(`  ✓ Created ${u.email} with role ${u.role}`);
+                // Set the role and mark as approved (seed users are pre-approved)
+                await pool.query('UPDATE "user" SET role = $1, approved = true WHERE id = $2', [u.role, res.user.id]);
+                console.log(`  ✓ Created ${u.email} with role ${u.role} (approved)`);
             }
         } catch (err) {
             console.error(`  ✗ Failed to create ${u.email}:`, err.message || err);
@@ -100,7 +105,9 @@ async function seedUsers() {
     try {
         await migrate();
         await seedUsers();
-        console.log('\nDone! Dummy credentials:');
+        // Ensure all seed users are approved even if they existed before
+        await pool.query(`UPDATE "user" SET approved = true WHERE email IN ('admin@election.dev', 'ro@election.dev', 'po@election.dev')`);
+        console.log('\nDone! Dummy credentials (all approved):');
         console.log('  ADMIN → admin@election.dev / password123');
         console.log('  RO    → ro@election.dev    / password123');
         console.log('  PO    → po@election.dev    / password123');

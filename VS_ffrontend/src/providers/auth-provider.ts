@@ -1,6 +1,15 @@
 import type { AuthProvider } from '@refinedev/core';
 import { authClient } from '@/lib/auth-client';
 
+type SessionUser = {
+    id: string;
+    name: string;
+    email: string;
+    image?: string;
+    role?: string;
+    approved?: boolean;
+};
+
 /**
  * Refine AuthProvider backed by BetterAuth.
  * Role-based redirects are handled in App.tsx via <Authenticated>.
@@ -17,9 +26,22 @@ export const authProvider: AuthProvider = {
                 };
             }
 
-            // Determine redirect destination based on user role
+            // Check approval status
             const session = await authClient.getSession();
-            const user = session?.data?.user as ({ id: string; name: string; email: string; image?: string } & { role?: string }) | undefined;
+            const user = session?.data?.user as SessionUser | undefined;
+
+            if (user && user.approved === false) {
+                // Not approved — sign them out immediately
+                await authClient.signOut();
+                return {
+                    success: false,
+                    error: {
+                        name: 'Account pending',
+                        message: 'Your account is pending admin approval. Please wait for an administrator to approve your access.',
+                    },
+                };
+            }
+
             const role = user?.role ?? 'ADMIN';
 
             const homeMap: Record<string, string> = {
@@ -55,13 +77,14 @@ export const authProvider: AuthProvider = {
     getIdentity: async () => {
         try {
             const session = await authClient.getSession();
-            const user = session?.data?.user as ({ id: string; name: string; email: string; image?: string } & { role?: string }) | undefined;
+            const user = session?.data?.user as SessionUser | undefined;
             if (!user) return null;
             return {
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role ?? 'PO',
+                approved: user.approved ?? false,
                 avatar: user.image,
             };
         } catch {
@@ -72,7 +95,7 @@ export const authProvider: AuthProvider = {
     getPermissions: async () => {
         try {
             const session = await authClient.getSession();
-            const user = session?.data?.user as ({ id: string; name: string; email: string; image?: string } & { role?: string }) | undefined;
+            const user = session?.data?.user as SessionUser | undefined;
             return user?.role ?? null;
         } catch {
             return null;
@@ -86,3 +109,4 @@ export const authProvider: AuthProvider = {
         return { error };
     },
 };
+

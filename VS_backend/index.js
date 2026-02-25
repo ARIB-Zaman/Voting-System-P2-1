@@ -32,6 +32,10 @@ app.use("/api/constituency", require("./routes/constituency"));
 app.use("/api/ro", require("./routes/ro"));
 app.use("/api/po", require("./routes/po"));
 
+// ── Sign-up (public) & Admin approval ────────────────────────────────────────
+app.use("/api/signup", require("./routes/signup"));
+app.use("/api/admin", require("./routes/admin"));
+
 app.listen(portNum, () => {
     console.log(`Backend running on http://localhost:${portNum}`);
 });
