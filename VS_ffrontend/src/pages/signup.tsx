@@ -185,6 +185,9 @@ const SignupPage: React.FC = () => {
                                     <SelectItem value="PO">
                                         Polling Officer (PO)
                                     </SelectItem>
+                                    <SelectItem value="PRO">
+                                        Presiding Officer (PRO)
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

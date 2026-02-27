@@ -7,7 +7,7 @@ const { auth } = require('../auth');
  * POST /api/signup
  * Public endpoint — creates a new user with approved = false.
  * Body: { name, email, password, role }
- * role must be 'RO' or 'PO' (ADMIN cannot be self-registered).
+ * role must be 'RO', 'PO', or 'PRO' (ADMIN cannot be self-registered).
  */
 router.post('/', async (req, res) => {
     const { name, email, password, role } = req.body;
@@ -17,10 +17,10 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: 'All fields are required (name, email, password, role).' });
     }
 
-    // Only RO and PO can self-register
-    const allowedRoles = ['RO', 'PO'];
+    // Only RO, PO, and PRO can self-register
+    const allowedRoles = ['RO', 'PO', 'PRO'];
     if (!allowedRoles.includes(role)) {
-        return res.status(400).json({ error: 'Role must be RO or PO.' });
+        return res.status(400).json({ error: 'Role must be RO, PO, or PRO.' });
     }
 
     // Check if email already exists

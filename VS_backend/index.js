@@ -31,6 +31,7 @@ app.use("/api/constituency", require("./routes/constituency"));
 // ── New role-based routes ─────────────────────────────────────────────────────
 app.use("/api/ro", require("./routes/ro"));
 app.use("/api/po", require("./routes/po"));
+app.use("/api/pro", require("./routes/pro"));
 
 // ── Sign-up (public) & Admin approval ────────────────────────────────────────
 app.use("/api/signup", require("./routes/signup"));

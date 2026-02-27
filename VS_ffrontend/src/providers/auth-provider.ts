@@ -48,6 +48,7 @@ export const authProvider: AuthProvider = {
                 ADMIN: '/homeAdmin',
                 RO: '/homeRO',
                 PO: '/homePO',
+                PRO: '/homePRO',
             };
 
             return { success: true, redirectTo: homeMap[role] ?? '/homeAdmin' };

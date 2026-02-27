@@ -208,13 +208,17 @@ const PendingApprovals: React.FC = () => {
                                                 <Badge
                                                     variant="outline"
                                                     className={`border-0 text-xs font-bold rounded-full px-2.5 py-0.5 ${u.role === 'RO'
-                                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                                        : u.role === 'PRO'
+                                                            ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
                                                             : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
                                                         }`}
                                                 >
                                                     {u.role === 'RO'
                                                         ? 'Returning Officer'
-                                                        : 'Polling Officer'}
+                                                        : u.role === 'PRO'
+                                                            ? 'Presiding Officer'
+                                                            : 'Polling Officer'}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="px-6 py-4 text-sm text-muted-foreground">

@@ -38,6 +38,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin Hub",
   RO: "RO Portal",
   PO: "PO Portal",
+  PRO: "PRO Portal",
 };
 
 export function Sidebar() {

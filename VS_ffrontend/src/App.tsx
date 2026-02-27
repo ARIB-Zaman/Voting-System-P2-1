@@ -14,7 +14,7 @@ import { ThemeProvider } from './components/refine-ui/theme/theme-provider';
 import { dataProvider } from './providers/data';
 import { authProvider } from './providers/auth-provider';
 import Dashboard from './pages/dashboardav';
-import { CalendarCheck2, ClipboardCheck, Home, MapPin, Users } from 'lucide-react';
+import { CalendarCheck2, ClipboardCheck, Home, MapPin, Shield, Users } from 'lucide-react';
 import { Layout } from './components/refine-ui/layout/layout';
 import CreateElection from './pages/createElection';
 import ElectionDetailsAD from './pages/electionDetailsAD';
@@ -23,6 +23,7 @@ import LoginPage from './pages/login';
 import SignupPage from './pages/signup';
 import RoDashboard from './pages/ro/roDashboard';
 import PoDashboard from './pages/po/poDashboard';
+import ProDashboard from './pages/pro/proDashboard';
 import PendingApprovals from './pages/admin/pendingApprovals';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
@@ -34,6 +35,8 @@ function homePathForRole(role?: string): string {
       return '/homeRO';
     case 'PO':
       return '/homePO';
+    case 'PRO':
+      return '/homePRO';
     default:
       return '/homeAdmin';
   }
@@ -98,6 +101,12 @@ function App() {
                   list: '/homePO',
                   meta: { label: 'My Station', icon: <MapPin />, role: 'PO' },
                 },
+                // ── PRO resources ─────────────────────────────────────────────
+                {
+                  name: 'pro-station',
+                  list: '/homePRO',
+                  meta: { label: 'My Station', icon: <Shield />, role: 'PRO' },
+                },
               ]}
             >
               <Routes>
@@ -134,6 +143,11 @@ function App() {
                   {/* PO portal */}
                   <Route path="/homePO">
                     <Route index element={<PoDashboard />} />
+                  </Route>
+
+                  {/* PRO portal */}
+                  <Route path="/homePRO">
+                    <Route index element={<ProDashboard />} />
                   </Route>
 
                   {/* Root: redirect based on role */}
