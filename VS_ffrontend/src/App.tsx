@@ -25,6 +25,7 @@ import RoDashboard from './pages/ro/roDashboard';
 import PoDashboard from './pages/po/poDashboard';
 import ProDashboard from './pages/pro/proDashboard';
 import PendingApprovals from './pages/admin/pendingApprovals';
+import ConstituencyDetails from './pages/constituencyDetails';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
 function homePathForRole(role?: string): string {
@@ -129,6 +130,7 @@ function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="createElection" element={<CreateElection />} />
                     <Route path="showElection/:id" element={<ElectionDetailsAD />} />
+                    <Route path="showElection/:id/constituency/:cId" element={<ConstituencyDetails />} />
                     <Route path="pending" element={<PendingApprovals />} />
                   </Route>
                   <Route path="/userslist">

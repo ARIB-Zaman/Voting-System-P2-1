@@ -50,7 +50,7 @@ const CreateElection = () => {
       .then(res => res.json())
       .then(data => {
         // assuming backend returns [{ username: "abc" }, ...]
-        setRoSuggestions(data.map((u: any) => u.username))
+        setRoSuggestions(data.map((u: any) => u.name))
       })
       .catch(() => {
         toast.error("Failed to load returning officers")
