@@ -8,13 +8,13 @@ router.use(requireAuth, requireRole('RO', 'ADMIN'));
 
 /**
  * GET /api/ro/elections
- * Returns elections where this RO has at least one constituency assigned.
- * Each election includes a nested `constituencies` array with only this RO's constituencies.
+ * Returns elections where this RO has ≥1 constituency assigned,
+ * with the assigned constituencies nested.
  */
 router.get('/elections', async (req, res) => {
-    const roId = req.user.id;
+    const userId = req.user.id;
     try {
-        // Get all constituencies assigned to this RO with election info
+        // Get all constituencies assigned to this RO, joined with election info
         const result = await pool.query(
             `SELECT e.election_id, e.name AS election_name, e.status, e.start_date, e.end_date,
                     c.constituency_id, c.name AS constituency_name, c.region
@@ -22,7 +22,7 @@ router.get('/elections', async (req, res) => {
              JOIN election e ON c.election_id = e.election_id
              WHERE c.ro_id = $1
              ORDER BY e.start_date DESC, c.name ASC`,
-            [roId]
+            [userId]
         );
 
         // Group by election
@@ -53,32 +53,37 @@ router.get('/elections', async (req, res) => {
 
 /**
  * GET /api/ro/summary
- * Returns RO-specific summary: elections count, constituencies count, active-now count.
+ * Returns summary stats filtered by this RO's assignments.
  */
 router.get('/summary', async (req, res) => {
-    const roId = req.user.id;
+    const userId = req.user.id;
     try {
-        // Total unique elections where RO is assigned
-        const elecResult = await pool.query(
-            `SELECT COUNT(DISTINCT c.election_id) AS total,
-                    COUNT(DISTINCT CASE WHEN e.status = 'LIVE' THEN c.election_id END) AS live
+        const result = await pool.query(
+            `SELECT e.status, COUNT(DISTINCT e.election_id) AS election_count,
+                    COUNT(c.constituency_id) AS constituency_count
              FROM constituency c
              JOIN election e ON c.election_id = e.election_id
-             WHERE c.ro_id = $1`,
-            [roId]
+             WHERE c.ro_id = $1
+             GROUP BY e.status`,
+            [userId]
         );
 
-        // Total constituencies assigned
-        const constResult = await pool.query(
-            `SELECT COUNT(*) AS total FROM constituency WHERE ro_id = $1`,
-            [roId]
-        );
+        let totalElections = 0;
+        let liveElections = 0;
+        let totalConstituencies = 0;
 
-        const stats = elecResult.rows[0];
+        for (const row of result.rows) {
+            const ec = parseInt(row.election_count);
+            const cc = parseInt(row.constituency_count);
+            totalElections += ec;
+            totalConstituencies += cc;
+            if (row.status === 'LIVE') liveElections = ec;
+        }
+
         res.json({
-            elections: parseInt(stats.total) || 0,
-            constituencies: parseInt(constResult.rows[0].total) || 0,
-            active_now: parseInt(stats.live) || 0,
+            elections: totalElections,
+            constituencies: totalConstituencies,
+            active_now: liveElections,
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

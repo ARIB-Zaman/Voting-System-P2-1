@@ -22,6 +22,7 @@ import UserList from './pages/userList';
 import LoginPage from './pages/login';
 import SignupPage from './pages/signup';
 import RoDashboard from './pages/ro/roDashboard';
+import RoConstituencyDetails from './pages/ro/roConstituencyDetails';
 import PoDashboard from './pages/po/poDashboard';
 import ProDashboard from './pages/pro/proDashboard';
 import PendingApprovals from './pages/admin/pendingApprovals';
@@ -140,6 +141,7 @@ function App() {
                   {/* RO portal */}
                   <Route path="/homeRO">
                     <Route index element={<RoDashboard />} />
+                    <Route path="constituency/:cId" element={<RoConstituencyDetails />} />
                   </Route>
 
                   {/* PO portal */}
