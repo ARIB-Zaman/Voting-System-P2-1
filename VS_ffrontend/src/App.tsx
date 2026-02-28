@@ -21,6 +21,7 @@ import ElectionDetailsAD from './pages/electionDetailsAD';
 import UserList from './pages/userList';
 import LoginPage from './pages/login';
 import SignupPage from './pages/signup';
+import LandingPage from './pages/landing';
 import RoDashboard from './pages/ro/roDashboard';
 import RoConstituencyDetails from './pages/ro/roConstituencyDetails';
 import PoDashboard from './pages/po/poDashboard';
@@ -112,14 +113,15 @@ function App() {
               ]}
             >
               <Routes>
-                {/* ── Public: Login & Signup (no Layout/sidebar) ──────────── */}
+                {/* ── Public routes (no Layout/sidebar) ────────────────── */}
+                <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
 
                 {/* ── Protected routes (all share the same Layout/sidebar) ── */}
                 <Route
                   element={
-                    <Authenticated key="main-layout" fallback={<Navigate to="/login" replace />}>
+                    <Authenticated key="main-layout" fallback={<Navigate to="/" replace />}>
                       <Layout>
                         <Outlet />
                       </Layout>
@@ -154,12 +156,12 @@ function App() {
                     <Route index element={<ProDashboard />} />
                   </Route>
 
-                  {/* Root: redirect based on role */}
-                  <Route index element={<RoleRedirect />} />
+                  {/* Authenticated root: redirect based on role */}
+                  <Route path="/dashboard" element={<RoleRedirect />} />
                 </Route>
 
-                {/* Catch-all: redirect based on role or to login */}
-                <Route path="*" element={<RoleRedirect />} />
+                {/* Catch-all: redirect to landing */}
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
 
               <Toaster richColors position="top-center" />

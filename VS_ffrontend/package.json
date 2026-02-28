@@ -46,6 +46,8 @@
     "@refinedev/react-table": "^6.0.0",
     "@refinedev/rest": "^2.1.0",
     "@refinedev/simple-rest": "^6.0.0",
+    "@splinetool/react-spline": "^4.1.0",
+    "@splinetool/runtime": "^1.12.61",
     "@tailwindcss/vite": "^4.1.8",
     "@tanstack/react-table": "^8.2.6",
     "better-auth": "^1.4.18",
