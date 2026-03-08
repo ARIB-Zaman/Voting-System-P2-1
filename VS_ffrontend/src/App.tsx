@@ -24,6 +24,7 @@ import SignupPage from './pages/signup';
 import LandingPage from './pages/landing';
 import RoDashboard from './pages/ro/roDashboard';
 import RoConstituencyDetails from './pages/ro/roConstituencyDetails';
+import PollingCenterDetails from './pages/ro/pollingCenterDetails';
 import PoDashboard from './pages/po/poDashboard';
 import ProDashboard from './pages/pro/proDashboard';
 import PendingApprovals from './pages/admin/pendingApprovals';
@@ -144,6 +145,7 @@ function App() {
                   <Route path="/homeRO">
                     <Route index element={<RoDashboard />} />
                     <Route path="constituency/:cId" element={<RoConstituencyDetails />} />
+                    <Route path="constituency/:cId/polling-center/:centerId" element={<PollingCenterDetails />} />
                   </Route>
 
                   {/* PO portal */}
