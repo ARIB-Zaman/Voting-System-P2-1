@@ -138,29 +138,16 @@ router.get('/constituency/:cId/polling-centers', async (req, res) => {
 /**
  * POST /api/ro/constituency/:cId/polling-centers
  * Creates a new polling center.
- * Body: { name, address, status?, presiding_officer_name? }
- * If presiding_officer_name is provided, looks up the user by name.
+ * Body: { name, address, status?, presiding_officer_id? }
  */
 router.post('/constituency/:cId/polling-centers', async (req, res) => {
     const { cId } = req.params;
-    const { name, address, status, presiding_officer_name } = req.body;
+    const { name, address, status, presiding_officer_id } = req.body;
 
     if (!name || !address)
         return res.status(400).json({ error: 'name and address are required' });
 
     try {
-        // Resolve presiding officer
-        let presiding_officer_id = null;
-        if (presiding_officer_name && presiding_officer_name.trim()) {
-            const uRes = await pool.query(
-                `SELECT id FROM public."user" WHERE name = $1 LIMIT 1`,
-                [presiding_officer_name.trim()]
-            );
-            if (uRes.rows.length === 0)
-                return res.status(400).json({ error: `No user found with name "${presiding_officer_name.trim()}"` });
-            presiding_officer_id = uRes.rows[0].id;
-        }
-
         // Determine default status from election dates if not provided
         let resolvedStatus = status;
         if (!resolvedStatus) {
@@ -184,7 +171,7 @@ router.post('/constituency/:cId/polling-centers', async (req, res) => {
             `INSERT INTO polling_center (name, address, constituency_id, status, presiding_officer_id)
              VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
-            [name.trim(), address.trim(), cId, resolvedStatus, presiding_officer_id]
+            [name.trim(), address.trim(), cId, resolvedStatus, presiding_officer_id || null]
         );
 
         // Return with officer name joined
@@ -204,30 +191,14 @@ router.post('/constituency/:cId/polling-centers', async (req, res) => {
 /**
  * PUT /api/ro/polling-centers/:id
  * Updates a polling center.
- * Body: { name?, address?, status?, presiding_officer_name? }
+ * Body: { name?, address?, status?, presiding_officer_id? }
  */
 router.put('/polling-centers/:id', async (req, res) => {
     const { id } = req.params;
-    const { name, address, status, presiding_officer_name } = req.body;
+    const { name, address, status, presiding_officer_id } = req.body;
 
     try {
-        // Resolve presiding officer
-        let presiding_officer_id = undefined; // undefined means "don't change"
-        if (presiding_officer_name !== undefined) {
-            if (presiding_officer_name === null || presiding_officer_name.trim() === '') {
-                presiding_officer_id = null;
-            } else {
-                const uRes = await pool.query(
-                    `SELECT id FROM public."user" WHERE name = $1 LIMIT 1`,
-                    [presiding_officer_name.trim()]
-                );
-                if (uRes.rows.length === 0)
-                    return res.status(400).json({ error: `No user found with name "${presiding_officer_name.trim()}"` });
-                presiding_officer_id = uRes.rows[0].id;
-            }
-        }
-
-        // Fetch current row to fill in unchanged values
+        // Fetch current row to fill in unchanged presiding officer
         const cur = await pool.query(
             `SELECT * FROM polling_center WHERE center_id = $1`, [id]
         );
@@ -235,16 +206,18 @@ router.put('/polling-centers/:id', async (req, res) => {
             return res.status(404).json({ error: 'Polling center not found' });
 
         const existing = cur.rows[0];
-        const finalPOId = presiding_officer_id !== undefined ? presiding_officer_id : existing.presiding_officer_id;
+        // presiding_officer_id === undefined means field was not sent → keep existing
+        const finalPOId = presiding_officer_id !== undefined
+            ? (presiding_officer_id || null)
+            : existing.presiding_officer_id;
 
-        const upd = await pool.query(
+        await pool.query(
             `UPDATE polling_center
              SET name = COALESCE($1, name),
                  address = COALESCE($2, address),
                  status = COALESCE($3, status),
                  presiding_officer_id = $4
-             WHERE center_id = $5
-             RETURNING *`,
+             WHERE center_id = $5`,
             [name?.trim() || null, address?.trim() || null, status || null, finalPOId, id]
         );
 

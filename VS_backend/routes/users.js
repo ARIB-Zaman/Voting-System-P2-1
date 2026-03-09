@@ -34,4 +34,37 @@ router.get("/ro", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/users/pro
+ * Get users with role = PRO (Presiding Officers)
+ */
+router.get("/pro", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name FROM public.\"user\" WHERE role = $1 AND approved = true",
+      ["PRO"]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/users/po
+ * Get users with role = PO (Polling Officers)
+ */
+router.get("/po", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name FROM public.\"user\" WHERE role = $1 AND approved = true",
+      ["PO"]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+

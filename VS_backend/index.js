@@ -27,6 +27,8 @@ app.use(express.json());
 app.use("/api/election", require("./routes/adminHome"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/constituency", require("./routes/constituency"));
+app.use("/api/polling-center", require("./routes/pollingCenter"));
+
 
 // ── New role-based routes ─────────────────────────────────────────────────────
 app.use("/api/ro", require("./routes/ro"));

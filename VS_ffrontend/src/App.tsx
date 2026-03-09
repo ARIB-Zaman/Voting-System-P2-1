@@ -27,8 +27,11 @@ import RoConstituencyDetails from './pages/ro/roConstituencyDetails';
 import PollingCenterDetails from './pages/ro/pollingCenterDetails';
 import PoDashboard from './pages/po/poDashboard';
 import ProDashboard from './pages/pro/proDashboard';
+import ProPollingCenterDetails from './pages/pro/proPollingCenterDetails';
 import PendingApprovals from './pages/admin/pendingApprovals';
 import ConstituencyDetails from './pages/constituencyDetails';
+
+import AdminPollingCenterDetails from './pages/admin/adminPollingCenterDetails';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
 function homePathForRole(role?: string): string {
@@ -135,6 +138,7 @@ function App() {
                     <Route path="createElection" element={<CreateElection />} />
                     <Route path="showElection/:id" element={<ElectionDetailsAD />} />
                     <Route path="showElection/:id/constituency/:cId" element={<ConstituencyDetails />} />
+                    <Route path="showElection/:id/constituency/:cId/polling-center/:centerId" element={<AdminPollingCenterDetails />} />
                     <Route path="pending" element={<PendingApprovals />} />
                   </Route>
                   <Route path="/userslist">
@@ -156,6 +160,7 @@ function App() {
                   {/* PRO portal */}
                   <Route path="/homePRO">
                     <Route index element={<ProDashboard />} />
+                    <Route path="polling-center/:centerId" element={<ProPollingCenterDetails />} />
                   </Route>
 
                   {/* Authenticated root: redirect based on role */}

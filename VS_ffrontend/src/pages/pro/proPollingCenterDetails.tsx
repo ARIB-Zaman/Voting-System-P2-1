@@ -2,16 +2,16 @@ import React from 'react';
 import { useParams } from 'react-router';
 import PollingCenterDetailsContent from '../shared/PollingCenterDetailsContent';
 
-const PollingCenterDetails: React.FC = () => {
-    const { cId, centerId } = useParams();
+const ProPollingCenterDetails: React.FC = () => {
+    const { centerId } = useParams();
 
     return (
         <PollingCenterDetailsContent
             centerId={centerId!}
-            backPath={`/homeRO/constituency/${cId}`}
-            backLabel="Back to Constituency"
+            backPath="/homePRO"
+            backLabel="Back to Dashboard"
         />
     );
 };
 
-export default PollingCenterDetails;
+export default ProPollingCenterDetails;
