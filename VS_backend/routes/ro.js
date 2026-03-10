@@ -252,4 +252,98 @@ router.delete('/polling-centers/:id', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/ro/constituency/:cId/candidates
+ * Returns all candidates for a constituency.
+ */
+router.get('/constituency/:cId/candidates', async (req, res) => {
+    const { cId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT * FROM candidate WHERE constituency_id = $1 ORDER BY candidate_id ASC`,
+            [cId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/ro/constituency/:cId/candidates
+ * Creates a new candidate.
+ * Body: { name, party, nomination_status? }
+ */
+router.post('/constituency/:cId/candidates', async (req, res) => {
+    const { cId } = req.params;
+    const { name, party, nomination_status } = req.body;
+
+    if (!name || !party)
+        return res.status(400).json({ error: 'name and party are required' });
+
+    try {
+        const status = nomination_status || 'PENDING';
+        const ins = await pool.query(
+            `INSERT INTO candidate (name, party, constituency_id, nomination_status)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
+            [name.trim(), party.trim(), cId, status]
+        );
+        res.status(201).json(ins.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * PUT /api/ro/candidates/:id
+ * Updates a candidate.
+ * Body: { name?, party?, nomination_status? }
+ */
+router.put('/candidates/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, party, nomination_status } = req.body;
+
+    try {
+        // Fetch current row
+        const cur = await pool.query(
+            `SELECT * FROM candidate WHERE candidate_id = $1`, [id]
+        );
+        if (cur.rows.length === 0)
+            return res.status(404).json({ error: 'Candidate not found' });
+
+        const updated = await pool.query(
+            `UPDATE candidate
+             SET name = COALESCE($1, name),
+                 party = COALESCE($2, party),
+                 nomination_status = COALESCE($3, nomination_status)
+             WHERE candidate_id = $4
+             RETURNING *`,
+            [name?.trim() || null, party?.trim() || null, nomination_status || null, id]
+        );
+
+        res.json(updated.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * DELETE /api/ro/candidates/:id
+ */
+router.delete('/candidates/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query(
+            `DELETE FROM candidate WHERE candidate_id = $1 RETURNING *`,
+            [id]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ error: 'Candidate not found' });
+        res.json({ message: 'Candidate deleted', candidate: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

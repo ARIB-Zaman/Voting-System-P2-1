@@ -59,6 +59,7 @@ import {
     Trash2,
     User,
     X,
+    Users,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -90,6 +91,16 @@ interface POUser {
 }
 
 type PCStatus = 'OPEN' | 'FLAGGED' | 'CLOSED';
+type NominationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+interface Candidate {
+    candidate_id: number;
+    name: string;
+    party: string;
+    constituency_id: number;
+    nomination_status: NominationStatus;
+    nota_flag: boolean;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,6 +130,12 @@ const pcStatusConfig: Record<PCStatus, { label: string; className: string }> = {
     OPEN: { label: 'Open', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
     FLAGGED: { label: 'Flagged', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
     CLOSED: { label: 'Closed', className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+};
+
+const candidateStatusConfig: Record<NominationStatus, { label: string; className: string }> = {
+    APPROVED: { label: 'Approved', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+    PENDING: { label: 'Pending', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+    REJECTED: { label: 'Rejected', className: 'bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive' },
 };
 
 // ── PO Combobox ───────────────────────────────────────────────────────────────
@@ -194,6 +211,7 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
     // ── Data state ────────────────────────────────────────────────────────────
     const [info, setInfo] = useState<ConstituencyInfo | null>(null);
     const [centers, setCenters] = useState<PollingCenter[]>([]);
+    const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [poUsers, setPoUsers] = useState<POUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -216,6 +234,22 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
     }>({ name: '', address: '', status: 'OPEN', presiding_officer_id: null });
     const [saving, setSaving] = useState(false);
 
+    // ── Candidate state ───────────────────────────────────────────────────────
+    const [showAddCandidate, setShowAddCandidate] = useState(false);
+    const [newCandidateName, setNewCandidateName] = useState('');
+    const [newCandidateParty, setNewCandidateParty] = useState('');
+    const [newCandidateStatus, setNewCandidateStatus] = useState<NominationStatus>('PENDING');
+    const [addingCandidate, setAddingCandidate] = useState(false);
+
+    const [editingCandidateId, setEditingCandidateId] = useState<number | null>(null);
+    const [editCandidateForm, setEditCandidateForm] = useState<{
+        name: string;
+        party: string;
+        nomination_status: NominationStatus;
+    }>({ name: '', party: '', nomination_status: 'PENDING' });
+    const [savingCandidate, setSavingCandidate] = useState(false);
+    const [processingCandidateIds, setProcessingCandidateIds] = useState<Set<number>>(new Set());
+
     // ── Processing set for deletes ────────────────────────────────────────────
     const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
 
@@ -234,6 +268,13 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
         return res.json() as Promise<PollingCenter[]>;
     }, [cId]);
 
+    const fetchCandidates = useCallback(async () => {
+        if (!cId) return;
+        const res = await fetch(`${API}/ro/constituency/${cId}/candidates`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load candidates');
+        return res.json() as Promise<Candidate[]>;
+    }, [cId]);
+
     const fetchPOUsers = useCallback(async () => {
         try {
             const res = await fetch(`${API}/users/pro`);
@@ -248,15 +289,17 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
         (async () => {
             setLoading(true);
             try {
-                const [infoData, centersData] = await Promise.all([
+                const [infoData, centersData, candidatesData] = await Promise.all([
                     fetchInfo(),
                     fetchCenters(),
+                    fetchCandidates(),
                 ]);
                 if (infoData) {
                     setInfo(infoData);
                     setNewStatus(isWithinRange(infoData.start_date, infoData.end_date) ? 'OPEN' : 'CLOSED');
                 }
                 if (centersData) setCenters(centersData);
+                if (candidatesData) setCandidates(candidatesData);
             } catch (e: unknown) {
                 setError(e instanceof Error ? e.message : 'Failed to load');
             } finally {
@@ -264,7 +307,7 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
             }
         })();
         fetchPOUsers();
-    }, [fetchInfo, fetchCenters, fetchPOUsers]);
+    }, [fetchInfo, fetchCenters, fetchCandidates, fetchPOUsers]);
 
     // ── Reset add row ─────────────────────────────────────────────────────────
     const resetAddRow = () => {
@@ -374,6 +417,109 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
         }
     };
 
+    // ── Candidate Add handler ─────────────────────────────────────────────────
+    const resetAddCandidateRow = () => {
+        setNewCandidateName('');
+        setNewCandidateParty('');
+        setNewCandidateStatus('PENDING');
+        setShowAddCandidate(false);
+    };
+
+    const addCandidate = async () => {
+        if (!cId || !newCandidateName.trim() || !newCandidateParty.trim()) {
+            toast.error('Name and party are required');
+            return;
+        }
+        setAddingCandidate(true);
+        try {
+            const res = await fetch(`${API}/ro/constituency/${cId}/candidates`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newCandidateName.trim(),
+                    party: newCandidateParty.trim(),
+                    nomination_status: newCandidateStatus,
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error ?? 'Failed to add candidate');
+            }
+            const created: Candidate = await res.json();
+            setCandidates((prev) => [...prev, created]);
+            resetAddCandidateRow();
+            toast.success('Candidate added');
+        } catch (e: unknown) {
+            toast.error(e instanceof Error ? e.message : 'Failed to add candidate');
+        } finally {
+            setAddingCandidate(false);
+        }
+    };
+
+    // ── Candidate Edit handlers ───────────────────────────────────────────────
+    const startEditCandidate = (cand: Candidate) => {
+        setEditingCandidateId(cand.candidate_id);
+        setEditCandidateForm({
+            name: cand.name,
+            party: cand.party,
+            nomination_status: cand.nomination_status,
+        });
+    };
+
+    const cancelEditCandidate = () => setEditingCandidateId(null);
+
+    const saveEditCandidate = async () => {
+        if (editingCandidateId === null) return;
+        setSavingCandidate(true);
+        try {
+            const res = await fetch(`${API}/ro/candidates/${editingCandidateId}`, {
+                method: 'PUT',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: editCandidateForm.name,
+                    party: editCandidateForm.party,
+                    nomination_status: editCandidateForm.nomination_status,
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error ?? 'Update failed');
+            }
+            const updated: Candidate = await res.json();
+            setCandidates((prev) => prev.map((c) => (c.candidate_id === editingCandidateId ? updated : c)));
+            setEditingCandidateId(null);
+            toast.success('Candidate updated');
+        } catch (e: unknown) {
+            toast.error(e instanceof Error ? e.message : 'Failed to update candidate');
+        } finally {
+            setSavingCandidate(false);
+        }
+    };
+
+    // ── Candidate Delete handler ──────────────────────────────────────────────
+    const deleteCandidate = async (candId: number) => {
+        setProcessingCandidateIds((prev) => new Set(prev).add(candId));
+        try {
+            const res = await fetch(`${API}/ro/candidates/${candId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error('Delete failed');
+            setCandidates((prev) => prev.filter((c) => c.candidate_id !== candId));
+            toast.success('Candidate deleted');
+        } catch {
+            toast.error('Failed to delete candidate');
+        } finally {
+            setProcessingCandidateIds((prev) => {
+                const next = new Set(prev);
+                next.delete(candId);
+                return next;
+            });
+        }
+    };
+
     // ── Loading / Error ───────────────────────────────────────────────────────
     if (loading) {
         return (
@@ -457,6 +603,214 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
                     </div>
                 </div>
             </div>
+
+
+            {/* ── Candidates ────────────────────────────────────────────────────── */}
+            <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b bg-muted/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                            Candidates
+                        </h2>
+                        <Badge variant="secondary" className="text-xs">{candidates.length}</Badge>
+                    </div>
+                    {!showAddCandidate && editingCandidateId === null && (
+                        <Button size="sm" variant="outline" onClick={() => setShowAddCandidate(true)}>
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Candidate
+                        </Button>
+                    )}
+                </div>
+
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Name</TableHead>
+                            <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Party</TableHead>
+                            <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Status</TableHead>
+                            <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                        {/* ── Add Candidate Row ─────────────────────────────────────── */}
+                        {showAddCandidate && (
+                            <TableRow className="bg-primary/5">
+                                <TableCell className="px-6 py-3">
+                                    <Input
+                                        placeholder="Candidate Name"
+                                        value={newCandidateName}
+                                        onChange={(e) => setNewCandidateName(e.target.value)}
+                                        className="h-9"
+                                    />
+                                </TableCell>
+                                <TableCell className="px-6 py-3">
+                                    <Input
+                                        placeholder="Party Name"
+                                        value={newCandidateParty}
+                                        onChange={(e) => setNewCandidateParty(e.target.value)}
+                                        className="h-9"
+                                    />
+                                </TableCell>
+                                <TableCell className="px-6 py-3">
+                                    <Select value={newCandidateStatus} onValueChange={(v) => setNewCandidateStatus(v as NominationStatus)}>
+                                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="PENDING">Pending</SelectItem>
+                                            <SelectItem value="APPROVED">Approved</SelectItem>
+                                            <SelectItem value="REJECTED">Rejected</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </TableCell>
+                                <TableCell className="px-6 py-3 text-right">
+                                    <div className="flex gap-1.5 justify-end">
+                                        <Button
+                                            size="sm"
+                                            onClick={addCandidate}
+                                            disabled={addingCandidate}
+                                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        >
+                                            {addingCandidate ? <Spinner className="size-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={resetAddCandidateRow} disabled={addingCandidate}>
+                                            <X className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )}
+
+                        {/* ── Empty State ───────────────────────────────────────────── */}
+                        {candidates.length === 0 && !showAddCandidate ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Users className="h-8 w-8 opacity-40" />
+                                        <p className="font-medium">No candidates registered</p>
+                                        <p className="text-xs">Add a candidate to get started.</p>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            candidates.map((cand) => {
+                                const isEditing = editingCandidateId === cand.candidate_id;
+                                const isProcessing = processingCandidateIds.has(cand.candidate_id);
+                                const statusCfg = candidateStatusConfig[cand.nomination_status] ?? candidateStatusConfig.PENDING;
+
+                                if (isEditing) {
+                                    return (
+                                        <TableRow key={cand.candidate_id} className="bg-primary/5">
+                                            <TableCell className="px-6 py-3">
+                                                <Input
+                                                    value={editCandidateForm.name}
+                                                    onChange={(e) => setEditCandidateForm((f) => ({ ...f, name: e.target.value }))}
+                                                    className="h-9"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="px-6 py-3">
+                                                <Input
+                                                    value={editCandidateForm.party}
+                                                    onChange={(e) => setEditCandidateForm((f) => ({ ...f, party: e.target.value }))}
+                                                    className="h-9"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="px-6 py-3">
+                                                <Select
+                                                    value={editCandidateForm.nomination_status}
+                                                    onValueChange={(v) => setEditCandidateForm((f) => ({ ...f, nomination_status: v as NominationStatus }))}
+                                                >
+                                                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="PENDING">Pending</SelectItem>
+                                                        <SelectItem value="APPROVED">Approved</SelectItem>
+                                                        <SelectItem value="REJECTED">Rejected</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
+                                            <TableCell className="px-6 py-3 text-right">
+                                                <div className="flex gap-1.5 justify-end">
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={saveEditCandidate}
+                                                        disabled={savingCandidate}
+                                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                    >
+                                                        {savingCandidate ? <Spinner className="size-3.5" /> : <Save className="h-3.5 w-3.5" />}
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" onClick={cancelEditCandidate} disabled={savingCandidate}>
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                }
+
+                                return (
+                                    <TableRow key={cand.candidate_id} className={isProcessing ? 'opacity-50' : ''}>
+                                        <TableCell className="px-6 py-3 font-medium text-sm">
+                                            {cand.name}
+                                            {cand.nota_flag && <Badge variant="secondary" className="ml-2 text-[10px] leading-3 py-0">NOTA</Badge>}
+                                        </TableCell>
+                                        <TableCell className="px-6 py-3 text-sm text-muted-foreground">{cand.party}</TableCell>
+                                        <TableCell className="px-6 py-3">
+                                            <Badge
+                                                variant="outline"
+                                                className={`border-0 text-xs font-bold rounded-full px-2.5 py-0.5 uppercase tracking-tight ${statusCfg.className}`}
+                                            >
+                                                {statusCfg.label}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="px-6 py-3 text-right">
+                                            <div className="flex gap-1.5 justify-end">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => startEditCandidate(cand)}
+                                                    disabled={isProcessing || showAddCandidate}
+                                                >
+                                                    <Edit3 className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                                                            disabled={isProcessing}
+                                                        >
+                                                            {isProcessing ? <Spinner className="size-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Delete "{cand.name}"?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This will permanently remove this candidate. This action cannot be undone.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction
+                                                                onClick={() => deleteCandidate(cand.candidate_id)}
+                                                                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                                            >
+                                                                Delete
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+
 
             {/* ── Polling Centers ───────────────────────────────────────────────── */}
             <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
@@ -690,6 +1044,8 @@ const ConstituencyDetailsContent: React.FC<Props> = ({ cId, backPath, backLabel 
                     </TableBody>
                 </Table>
             </div>
+
+            
         </div>
     );
 };
