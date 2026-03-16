@@ -66,5 +66,21 @@ router.get("/po", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/users/assignable
+ * Get all approved users with role = USER (assignable as Returning Officer)
+ */
+router.get("/assignable", async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name FROM public."user" WHERE role = $1 AND approved = true ORDER BY name',
+      ["USER"]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 

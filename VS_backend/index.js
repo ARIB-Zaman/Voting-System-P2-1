@@ -27,6 +27,7 @@ app.use(express.json());
 app.use("/api/election", require("./routes/adminHome"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/constituency", require("./routes/constituency"));
+app.use("/api/constituency_of_election", require("./routes/constituency_of_election"));
 app.use("/api/polling-center", require("./routes/pollingCenter"));
 
 

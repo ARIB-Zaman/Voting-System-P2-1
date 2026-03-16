@@ -70,15 +70,17 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// DELETE election (constituencies cascade via ON DELETE CASCADE or manual)
+// DELETE election
 router.delete("/:id", async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
 
     try {
         await client.query("BEGIN");
-        // Delete constituencies first
-        await client.query("DELETE FROM constituency WHERE election_id = $1", [id]);
+        // Delete role_map entries for this election
+        await client.query("DELETE FROM role_map WHERE election_id = $1", [id]);
+        // Delete constituency_of_election entries
+        await client.query("DELETE FROM constituency_of_election WHERE election_id = $1", [id]);
         // Delete election
         const result = await client.query(
             "DELETE FROM election WHERE election_id = $1 RETURNING *",

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,6 @@ import {
   Edit3,
   Eye,
   MapPin,
-  Plus,
   Save,
   Trash2,
   Users,
@@ -73,15 +72,15 @@ interface Election {
 }
 
 interface Constituency {
+  coe_id: number;
   constituency_id: number;
   name: string;
   region: string;
-  election_id: number;
   ro_id: string | null;
   ro_name: string | null;
 }
 
-interface ROUser {
+interface AssignableUser {
   id: string;
   name: string;
 }
@@ -128,11 +127,11 @@ const toDatetimeLocal = (iso: string) => {
 const ROCombobox: React.FC<{
   value: string | null;
   onChange: (id: string | null, name: string | null) => void;
-  roUsers: ROUser[];
-}> = ({ value, onChange, roUsers }) => {
+  users: AssignableUser[];
+}> = ({ value, onChange, users }) => {
   const [open, setOpen] = useState(false);
 
-  const selected = roUsers.find((u) => u.id === value);
+  const selected = users.find((u) => u.id === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -143,15 +142,15 @@ const ROCombobox: React.FC<{
           aria-expanded={open}
           className="w-full justify-between font-normal h-9"
         >
-          {selected ? selected.name : 'Select RO (optional)…'}
+          {selected ? selected.name : 'Select user (optional)…'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[280px] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search officers…" />
+          <CommandInput placeholder="Search users…" />
           <CommandList>
-            <CommandEmpty>No officers found.</CommandEmpty>
+            <CommandEmpty>No users found.</CommandEmpty>
             <CommandGroup>
               {/* Allow clearing */}
               <CommandItem
@@ -164,17 +163,17 @@ const ROCombobox: React.FC<{
                 <span>None (unassign)</span>
                 {!value && <Check className="ml-auto h-4 w-4" />}
               </CommandItem>
-              {roUsers.map((ro) => (
+              {users.map((u) => (
                 <CommandItem
-                  key={ro.id}
-                  value={ro.name}
+                  key={u.id}
+                  value={u.name}
                   onSelect={() => {
-                    onChange(ro.id, ro.name);
+                    onChange(u.id, u.name);
                     setOpen(false);
                   }}
                 >
-                  {ro.name}
-                  {value === ro.id && (
+                  {u.name}
+                  {value === u.id && (
                     <Check className="ml-auto h-4 w-4" />
                   )}
                 </CommandItem>
@@ -196,7 +195,7 @@ const ElectionDetailsAD: React.FC = () => {
   // ── Data state ───────────────────────────────────────────────────────────
   const [election, setElection] = useState<Election | null>(null);
   const [constituencies, setConstituencies] = useState<Constituency[]>([]);
-  const [roUsers, setRoUsers] = useState<ROUser[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,27 +204,24 @@ const ElectionDetailsAD: React.FC = () => {
   const [editForm, setEditForm] = useState<Partial<Election>>({});
   const [savingInfo, setSavingInfo] = useState(false);
 
-  // ── Add constituency state ───────────────────────────────────────────────
-  const [showAddRow, setShowAddRow] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newRegion, setNewRegion] = useState('');
-  const [newRoId, setNewRoId] = useState<string | null>(null);
-  const [addingConstituency, setAddingConstituency] = useState(false);
+  // (Add constituency removed — managed elsewhere)
 
   // ── Edit constituency state ──────────────────────────────────────────────
-  const [editingCId, setEditingCId] = useState<number | null>(null);
+  const [editingCoeId, setEditingCoeId] = useState<number | null>(null);
   const [editCForm, setEditCForm] = useState<{
-    name: string;
-    region: string;
     ro_id: string | null;
-  }>({ name: '', region: '', ro_id: null });
+  }>({ ro_id: null });
   const [savingConstituency, setSavingConstituency] = useState(false);
+  
+  // ── Available constituencies state ───────────────────────────────────────
+  const [unassignedConstituencies, setUnassignedConstituencies] = useState<{ id: number; name: string; region: string }[]>([]);
+  const [addingConstituency, setAddingConstituency] = useState(false);
 
   // ── Delete election state ────────────────────────────────────────────────
   const [deletingElection, setDeletingElection] = useState(false);
 
-  // ── Processing set for constituency deletes ──────────────────────────────
-  const [processingCIds, setProcessingCIds] = useState<Set<number>>(new Set());
+  // ── Remove constituency state ────────────────────────────────────────────
+  const [deletingCoeId, setDeletingCoeId] = useState<number | null>(null);
 
   // ── Fetch data ───────────────────────────────────────────────────────────
   const fetchElection = useCallback(async () => {
@@ -243,7 +239,7 @@ const ElectionDetailsAD: React.FC = () => {
   const fetchConstituencies = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/constituency/election/${id}`);
+      const res = await fetch(`${API}/constituency_of_election/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch constituencies');
       const data = await res.json();
       setConstituencies(data);
@@ -252,24 +248,41 @@ const ElectionDetailsAD: React.FC = () => {
     }
   }, [id]);
 
-  const fetchRoUsers = useCallback(async () => {
+  const fetchAssignableUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/users/ro`);
-      if (!res.ok) throw new Error('Failed to fetch ROs');
+      const res = await fetch(`${API}/users/assignable`);
+      if (!res.ok) throw new Error('Failed to fetch assignable users');
       const data = await res.json();
-      setRoUsers(data);
+      setAssignableUsers(data);
     } catch {
-      // Non-critical — RO dropdown will just be empty
+      // Non-critical — dropdown will just be empty
     }
   }, []);
+
+  const fetchUnassignedConstituencies = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await fetch(`${API}/constituency/unassigned/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch unassigned constituencies');
+      const data = await res.json();
+      setUnassignedConstituencies(data);
+    } catch {
+      // Non-critical, just keep empty
+    }
+  }, [id]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([fetchElection(), fetchConstituencies(), fetchRoUsers()]);
+      await Promise.all([
+        fetchElection(),
+        fetchConstituencies(),
+        fetchAssignableUsers(),
+        fetchUnassignedConstituencies()
+      ]);
       setLoading(false);
     })();
-  }, [fetchElection, fetchConstituencies, fetchRoUsers]);
+  }, [fetchElection, fetchConstituencies, fetchAssignableUsers, fetchUnassignedConstituencies]);
 
   // ── Election edit handlers ───────────────────────────────────────────────
   const startEditInfo = () => {
@@ -336,31 +349,57 @@ const ElectionDetailsAD: React.FC = () => {
   };
 
   // ── Constituency handlers ────────────────────────────────────────────────
-  const addConstituency = async () => {
-    if (!newName.trim() || !newRegion.trim()) {
-      toast.error('Name and region are required');
-      return;
+  const startEditConstituency = (c: Constituency) => {
+    setEditingCoeId(c.coe_id);
+    setEditCForm({
+      ro_id: c.ro_id,
+    });
+  };
+
+  const cancelEditConstituency = () => {
+    setEditingCoeId(null);
+  };
+
+  const saveConstituency = async () => {
+    if (editingCoeId === null) return;
+    setSavingConstituency(true);
+    try {
+      const res = await fetch(`${API}/constituency_of_election/${editingCoeId}/ro`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ro_id: editCForm.ro_id }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+      const updated = await res.json();
+      setConstituencies((prev) =>
+        prev.map((c) => (c.coe_id === editingCoeId ? updated : c))
+      );
+      setEditingCoeId(null);
+      toast.success('Returning officer updated');
+    } catch {
+      toast.error('Failed to update returning officer');
+    } finally {
+      setSavingConstituency(false);
     }
+  };
+
+  const addConstituency = async (constituencyId: number) => {
+    if (!election) return;
     setAddingConstituency(true);
     try {
-      const res = await fetch(`${API}/constituency/single`, {
+      const res = await fetch(`${API}/constituency_of_election`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newName,
-          region: newRegion,
-          election_id: Number(id),
-          ro_id: newRoId,
+          election_id: election.election_id,
+          constituency_ids: [constituencyId],
         }),
       });
-      if (!res.ok) throw new Error('Failed to add');
-      const created = await res.json();
-      setConstituencies((prev) => [...prev, created]);
-      setNewName('');
-      setNewRegion('');
-      setNewRoId(null);
-      setShowAddRow(false);
-      toast.success('Constituency added');
+      if (!res.ok) throw new Error('Add failed');
+      
+      toast.success('Constituency added to election');
+      // Refresh the lists
+      await Promise.all([fetchConstituencies(), fetchUnassignedConstituencies()]);
     } catch {
       toast.error('Failed to add constituency');
     } finally {
@@ -368,61 +407,20 @@ const ElectionDetailsAD: React.FC = () => {
     }
   };
 
-  const startEditConstituency = (c: Constituency) => {
-    setEditingCId(c.constituency_id);
-    setEditCForm({
-      name: c.name,
-      region: c.region,
-      ro_id: c.ro_id,
-    });
-  };
-
-  const cancelEditConstituency = () => {
-    setEditingCId(null);
-  };
-
-  const saveConstituency = async () => {
-    if (editingCId === null) return;
-    setSavingConstituency(true);
+  const deleteConstituency = async (coeId: number) => {
+    setDeletingCoeId(coeId);
     try {
-      const res = await fetch(`${API}/constituency/${editingCId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editCForm),
-      });
-      if (!res.ok) throw new Error('Update failed');
-      const updated = await res.json();
-      setConstituencies((prev) =>
-        prev.map((c) => (c.constituency_id === editingCId ? updated : c))
-      );
-      setEditingCId(null);
-      toast.success('Constituency updated');
-    } catch {
-      toast.error('Failed to update constituency');
-    } finally {
-      setSavingConstituency(false);
-    }
-  };
-
-  const deleteConstituency = async (cId: number) => {
-    setProcessingCIds((prev) => new Set(prev).add(cId));
-    try {
-      const res = await fetch(`${API}/constituency/${cId}`, {
+      const res = await fetch(`${API}/constituency_of_election/${coeId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Delete failed');
-      setConstituencies((prev) =>
-        prev.filter((c) => c.constituency_id !== cId)
-      );
-      toast.success('Constituency deleted');
+      toast.success('Constituency removed from election');
+      // Refresh the lists
+      await Promise.all([fetchConstituencies(), fetchUnassignedConstituencies()]);
     } catch {
-      toast.error('Failed to delete constituency');
+      toast.error('Failed to remove constituency');
     } finally {
-      setProcessingCIds((prev) => {
-        const next = new Set(prev);
-        next.delete(cId);
-        return next;
-      });
+      setDeletingCoeId(null);
     }
   };
 
@@ -674,7 +672,7 @@ const ElectionDetailsAD: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Constituencies ─────────────────────────────────────────────── */}
+      {/* ── Constituencies Table ────────────────────────────────────────── */}
       <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b bg-muted/30 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -685,16 +683,6 @@ const ElectionDetailsAD: React.FC = () => {
               {constituencies.length}
             </Badge>
           </div>
-          {!showAddRow && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowAddRow(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Constituency
-            </Button>
-          )}
         </div>
 
         <Table>
@@ -715,65 +703,8 @@ const ElectionDetailsAD: React.FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {/* Add constituency row */}
-            {showAddRow && (
-              <TableRow className="bg-primary/5">
-                <TableCell className="px-6 py-3">
-                  <Input
-                    placeholder="Constituency name"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="h-9"
-                  />
-                </TableCell>
-                <TableCell className="px-6 py-3">
-                  <Input
-                    placeholder="Region"
-                    value={newRegion}
-                    onChange={(e) => setNewRegion(e.target.value)}
-                    className="h-9"
-                  />
-                </TableCell>
-                <TableCell className="px-6 py-3">
-                  <ROCombobox
-                    value={newRoId}
-                    onChange={(id) => setNewRoId(id)}
-                    roUsers={roUsers}
-                  />
-                </TableCell>
-                <TableCell className="px-6 py-3 text-right">
-                  <div className="flex gap-1.5 justify-end">
-                    <Button
-                      size="sm"
-                      onClick={addConstituency}
-                      disabled={addingConstituency}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      {addingConstituency ? (
-                        <Spinner className="size-3.5" />
-                      ) : (
-                        <Check className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setShowAddRow(false);
-                        setNewName('');
-                        setNewRegion('');
-                        setNewRoId(null);
-                      }}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-
             {/* Constituency rows */}
-            {constituencies.length === 0 && !showAddRow ? (
+            {constituencies.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={4}
@@ -790,38 +721,23 @@ const ElectionDetailsAD: React.FC = () => {
               </TableRow>
             ) : (
               constituencies.map((c) => {
-                const isEditing = editingCId === c.constituency_id;
-                const isProcessing = processingCIds.has(c.constituency_id);
+                const isEditing = editingCoeId === c.coe_id;
+                // row key uses coe_id
 
                 if (isEditing) {
                   return (
                     <TableRow
-                      key={c.constituency_id}
+                      key={c.coe_id}
                       className="bg-primary/5"
                     >
                       <TableCell className="px-6 py-3">
-                        <Input
-                          value={editCForm.name}
-                          onChange={(e) =>
-                            setEditCForm((f) => ({
-                              ...f,
-                              name: e.target.value,
-                            }))
-                          }
-                          className="h-9"
-                        />
+                        <p className="text-sm font-medium">{c.name}</p>
                       </TableCell>
                       <TableCell className="px-6 py-3">
-                        <Input
-                          value={editCForm.region}
-                          onChange={(e) =>
-                            setEditCForm((f) => ({
-                              ...f,
-                              region: e.target.value,
-                            }))
-                          }
-                          className="h-9"
-                        />
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {c.region}
+                        </div>
                       </TableCell>
                       <TableCell className="px-6 py-3">
                         <ROCombobox
@@ -832,7 +748,7 @@ const ElectionDetailsAD: React.FC = () => {
                               ro_id: id,
                             }))
                           }
-                          roUsers={roUsers}
+                          users={assignableUsers}
                         />
                       </TableCell>
                       <TableCell className="px-6 py-3 text-right">
@@ -864,7 +780,7 @@ const ElectionDetailsAD: React.FC = () => {
 
                 return (
                   <TableRow
-                    key={c.constituency_id}
+                    key={c.coe_id}
                     className="hover:bg-muted/40 transition-colors"
                   >
                     <TableCell className="px-6 py-4">
@@ -909,10 +825,8 @@ const ElectionDetailsAD: React.FC = () => {
                           size="sm"
                           variant="ghost"
                           className="h-8 w-8 p-0"
-                          onClick={() =>
-                            startEditConstituency(c)
-                          }
-                          title="Edit"
+                          onClick={() => startEditConstituency(c)}
+                          title="Edit RO"
                         >
                           <Edit3 className="h-4 w-4" />
                         </Button>
@@ -921,37 +835,27 @@ const ElectionDetailsAD: React.FC = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              disabled={isProcessing}
-                              title="Delete"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="Remove from election"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Delete "{c.name}"?
-                              </AlertDialogTitle>
+                              <AlertDialogTitle>Remove Constituency</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently
-                                remove this constituency
-                                from the election.
+                                Are you sure you want to remove <strong>{c.name}</strong> from this election? This will also remove any Returning Officer assignment for this mapping.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>
-                                Cancel
-                              </AlertDialogCancel>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() =>
-                                  deleteConstituency(
-                                    c.constituency_id
-                                  )
-                                }
+                                onClick={() => deleteConstituency(c.coe_id)}
+                                disabled={deletingCoeId === c.coe_id}
                                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                               >
-                                Delete
+                                {deletingCoeId === c.coe_id ? 'Removing…' : 'Remove'}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -965,6 +869,39 @@ const ElectionDetailsAD: React.FC = () => {
           </TableBody>
         </Table>
       </div>
+
+      
+      {/* ── Available Constituencies Badge Picker ──────────────────────── */}
+      {unassignedConstituencies.length > 0 && (
+        <div className="bg-card border rounded-xl shadow-sm p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              Available Constituencies
+            </h2>
+            <Badge variant="secondary" className="text-xs">
+              {unassignedConstituencies.length}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Click a constituency to add it to this election.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {unassignedConstituencies.map((c) => (
+              <Badge
+                key={c.id}
+                variant="secondary"
+                className={`cursor-pointer px-3 py-1.5 transition-colors hover:bg-primary hover:text-primary-foreground ${
+                  addingConstituency ? 'opacity-50 pointer-events-none' : ''
+                }`}
+                onClick={() => addConstituency(c.id)}
+              >
+                {c.name}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

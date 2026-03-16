@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
 import { X } from 'lucide-react'
 
 
@@ -30,32 +31,42 @@ const CreateElection = () => {
 
   const [endDate, setEndDate] = React.useState<Date | undefined>()
   const [endTime, setEndTime] = React.useState("")
-  type ConstituencyDraft = {
-    name: string
-    region: string
-    ro_username?: string | null
-  }
 
-  const [constituencyName, setConstituencyName] = React.useState("")
-  const [region, setRegion] = React.useState("")
-  const [roUsername, setRoUsername] = React.useState("")
-
-  const [constituencies, setConstituencies] = React.useState<ConstituencyDraft[]>([])
-
-  const [roSuggestions, setRoSuggestions] = React.useState<string[]>([])
 
   type ElectionStatus = "PLANNED" | "LIVE" | "CLOSED"
+
+  type Constituency = {
+    id: number
+    name: string
+    region: string
+    lat: string
+    lng: string
+  }
+
+  const [constituencies, setConstituencies] = React.useState<Constituency[]>([])
+  const [selectedConstituencies, setSelectedConstituencies] = React.useState<number[]>([])
   React.useEffect(() => {
-    fetch("http://localhost:3001/api/users/ro")
-      .then(res => res.json())
-      .then(data => {
-        // assuming backend returns [{ username: "abc" }, ...]
-        setRoSuggestions(data.map((u: any) => u.name))
-      })
-      .catch(() => {
-        toast.error("Failed to load returning officers")
-      })
+    const fetchConstituencies = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/constituency")
+        const data = await res.json()
+        setConstituencies(data)
+      } catch (err) {
+        console.error("Failed to fetch constituencies", err)
+      }
+    }
+
+    fetchConstituencies()
   }, [])
+
+  const toggleConstituency = (id: number) => {
+    setSelectedConstituencies((prev) =>
+      prev.includes(id)
+        ? prev.filter((cid) => cid !== id)
+        : [...prev, id]
+    )
+  }
+
 
   function computeStatus(start: Date, end: Date): ElectionStatus {
       const now = new Date()
@@ -65,29 +76,8 @@ const CreateElection = () => {
       return "CLOSED"
     }
 
-    const handleAddConstituency = () => {
-    if (!constituencyName || !region) {
-      toast.error("Constituency name and region are required")
-      return
-    }
+  
 
-    setConstituencies(prev => [
-      ...prev,
-      {
-        name: constituencyName,
-        region,
-        ro_username: roUsername.trim() === "" ? null : roUsername
-      }
-    ])
-
-    // reset inputs
-    setConstituencyName("")
-    setRegion("")
-    setRoUsername("")
-  }
-  const removeConstituency = (index: number) => {
-    setConstituencies(prev => prev.filter((_, i) => i !== index))
-  }
   const handleSubmit = async (e: React.FormEvent) => {
      e.preventDefault()
 
@@ -142,33 +132,18 @@ const CreateElection = () => {
       const data = await res.json()
       console.log("Success:", data)
           
-          const electionId = data.election_id
+      const electionId = data.election_id
 
-          if (constituencies.length > 0) {
-            const constituencyPayload = {
-              election_id: electionId,
-              constituencies,
-            }
-
-            console.log(
-              "Posting constituencies payload:",
-              JSON.stringify(constituencyPayload, null, 2)
-            )
-
-            const res2 = await fetch("http://localhost:3001/api/constituency", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(constituencyPayload),
-            })
-
-            const text = await res2.text()
-            console.log("Constituency response status:", res2.status)
-            console.log("Constituency response body:", text)
-
-            if (!res2.ok) {
-              throw new Error("Failed to create constituencies")
-            }
-          }
+      await fetch("http://localhost:3001/api/constituency_of_election", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          election_id: electionId,
+          constituency_ids: selectedConstituencies,
+        }),
+      })
           
       toast.success("Election created successfully")
     } catch (err) {
@@ -181,7 +156,7 @@ const CreateElection = () => {
     <ListView>
         <Breadcrumb/>
         <div className='flex justify-center'>
-        <Card className='min-w-2xl flex justify-center'>
+        <Card className='min-w-2xl max-w-2xl flex justify-center'>
           <CardHeader >
             <CardTitle className='flex justify-center text-2xl'>Create New Election</CardTitle>       
           </CardHeader>
@@ -275,94 +250,41 @@ const CreateElection = () => {
               </FieldGroup>
             </FieldSet>
             
+
+            <Separator />
+
+          <Field>
+            <FieldLabel className='text-2xl font-bold'>Select Constituencies</FieldLabel>
+
+            <div className="flex flex-wrap gap-2">
+              {constituencies.map((c) => {
+                const selected = selectedConstituencies.includes(c.id)
+
+                return (
+                  <Badge
+                    key={c.id}
+                    variant={selected ? "default" : "secondary"}
+                    className="cursor-pointer  px-4 py-2 text-sm"
+                    onClick={() => toggleConstituency(c.id)}
+                  >
+                    {c.name}
+                  </Badge>
+                )
+              })}
+            </div>
+
+            <FieldDescription>
+              Click constituencies to include them in this election.
+            </FieldDescription>
+          </Field>
+
+
+            <Separator/>
             <div className="flex justify-end">
               <Button type="submit" >Create Election</Button>
             </div>
-            <Separator />
 
-            <FieldSet>
-              <FieldGroup>
-                <h2 className="text-lg font-semibold">Add Constituencies</h2>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <Field>
-                    <FieldLabel>Constituency Name</FieldLabel>
-                    <Input
-                      value={constituencyName}
-                      onChange={(e) => setConstituencyName(e.target.value)}
-                      placeholder="Dhaka North"
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel>Region</FieldLabel>
-                    <Input
-                      value={region}
-                      onChange={(e) => setRegion(e.target.value)}
-                      placeholder="Dhaka"
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel>Returning Officer (optional)</FieldLabel>
-                    <Input
-                      value={roUsername}
-                      onChange={(e) => setRoUsername(e.target.value)}
-                      placeholder="username"
-                      list="ro-list"
-                    />
-                    <datalist id="ro-list">
-                      {roSuggestions.map(ro => (
-                        <option key={ro} value={ro} />
-                      ))}
-                    </datalist>
-                  </Field>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button type="button" variant="secondary" onClick={handleAddConstituency}>
-                    + Add
-                  </Button>
-                </div>
-              </FieldGroup>
-            </FieldSet>
-            {constituencies.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Added Constituencies</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Name</th>
-                      <th className="text-left p-2">Region</th>
-                      <th className="text-left p-2">RO</th>
-                      <th className="p-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {constituencies.map((c, idx) => (
-                      <tr key={idx} className="border-b">
-                        <td className="p-2">{c.name}</td>
-                        <td className="p-2">{c.region}</td>
-                        <td className="p-2">{c.ro_username}</td>
-                        <td className="p-2 text-right">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => removeConstituency(idx)}
-                          >
-                            <X/>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          )}
           </form>
           </CardContent>
           <CardFooter>
