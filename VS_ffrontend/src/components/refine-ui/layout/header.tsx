@@ -21,9 +21,7 @@ interface Identity {
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin Hub",
-  RO: "RO Portal",
-  PO: "PO Portal",
-  PRO: "PRO Portal",
+  USER: "Welec",
 };
 
 export const Header = () => {
@@ -60,7 +58,7 @@ function DesktopHeader() {
 function MobileHeader() {
   const { open, isMobile } = useSidebar();
   const { data: identity } = useGetIdentity<Identity>();
-  const roleLabel = identity?.role ? (ROLE_LABELS[identity.role] ?? 'Admin Hub') : 'Admin Hub';
+  const roleLabel = identity?.role ? (ROLE_LABELS[identity.role] ?? 'Welec') : 'Welec';
 
   const title = { icon: <Origami />, text: roleLabel }
 

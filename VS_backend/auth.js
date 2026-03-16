@@ -15,7 +15,7 @@ const auth = betterAuth({
       role: {
         type: 'string',
         required: false,
-        defaultValue: 'PO',
+        defaultValue: 'USER',
         input: true,
       },
       approved: {

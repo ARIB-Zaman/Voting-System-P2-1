@@ -14,7 +14,7 @@ import { ThemeProvider } from './components/refine-ui/theme/theme-provider';
 import { dataProvider } from './providers/data';
 import { authProvider } from './providers/auth-provider';
 import Dashboard from './pages/dashboardav';
-import { CalendarCheck2, ClipboardCheck, Home, MapPin, Shield, Users } from 'lucide-react';
+import { ClipboardCheck, Home, Shield, Users } from 'lucide-react';
 import { Layout } from './components/refine-ui/layout/layout';
 import CreateElection from './pages/createElection';
 import ElectionDetailsAD from './pages/electionDetailsAD';
@@ -22,30 +22,20 @@ import UserList from './pages/userList';
 import LoginPage from './pages/login';
 import SignupPage from './pages/signup';
 import LandingPage from './pages/landing';
-import RoDashboard from './pages/ro/roDashboard';
-import RoConstituencyDetails from './pages/ro/roConstituencyDetails';
-import PollingCenterDetails from './pages/ro/pollingCenterDetails';
-import PoDashboard from './pages/po/poDashboard';
-import ProDashboard from './pages/pro/proDashboard';
-import ProPollingCenterDetails from './pages/pro/proPollingCenterDetails';
 import PendingApprovals from './pages/admin/pendingApprovals';
 import ConstituencyDetails from './pages/constituencyDetails';
-
 import AdminPollingCenterDetails from './pages/admin/adminPollingCenterDetails';
+import UserDashboard from './pages/user/userDashboard';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
 function homePathForRole(role?: string): string {
   switch (role) {
     case 'ADMIN':
       return '/homeAdmin';
-    case 'RO':
-      return '/homeRO';
-    case 'PO':
-      return '/homePO';
-    case 'PRO':
-      return '/homePRO';
+    case 'USER':
+      return '/homeUSER';
     default:
-      return '/homeAdmin';
+      return '/homeUSER';
   }
 }
 
@@ -59,6 +49,40 @@ const RoleRedirect = () => {
   if (isLoading) return null;
 
   return <Navigate to={homePathForRole(identity?.role)} replace />;
+};
+
+/**
+ * Guards a subtree so that only ADMIN users can enter.
+ * Any other authenticated role is bounced to /homeUSER.
+ * Must be rendered inside <Refine>.
+ */
+const AdminGuard = () => {
+  const { data: identity, isLoading } = useGetIdentity<{ role?: string }>();
+
+  if (isLoading) return null;
+
+  if (identity?.role !== 'ADMIN') {
+    return <Navigate to="/homeUSER" replace />;
+  }
+
+  return <Outlet />;
+};
+
+/**
+ * Guards a subtree so that only USER role can enter.
+ * Admins (or any other role) are bounced back to /homeAdmin.
+ * Must be rendered inside <Refine>.
+ */
+const UserGuard = () => {
+  const { data: identity, isLoading } = useGetIdentity<{ role?: string }>();
+
+  if (isLoading) return null;
+
+  if (identity?.role !== 'USER') {
+    return <Navigate to="/homeAdmin" replace />;
+  }
+
+  return <Outlet />;
 };
 
 function App() {
@@ -96,23 +120,11 @@ function App() {
                   list: '/homeAdmin/pending',
                   meta: { label: 'Pending Approvals', icon: <ClipboardCheck />, role: 'ADMIN' },
                 },
-                // ── RO resources ──────────────────────────────────────────────
+                // ── USER resources ────────────────────────────────────────────
                 {
-                  name: 'ro-elections',
-                  list: '/homeRO',
-                  meta: { label: 'Elections', icon: <CalendarCheck2 />, role: 'RO' },
-                },
-                // ── PO resources ──────────────────────────────────────────────
-                {
-                  name: 'po-station',
-                  list: '/homePO',
-                  meta: { label: 'My Station', icon: <MapPin />, role: 'PO' },
-                },
-                // ── PRO resources ─────────────────────────────────────────────
-                {
-                  name: 'pro-station',
-                  list: '/homePRO',
-                  meta: { label: 'My Station', icon: <Shield />, role: 'PRO' },
+                  name: 'user-dashboard',
+                  list: '/homeUSER',
+                  meta: { label: 'Dashboard', icon: <Shield />, role: 'USER' },
                 },
               ]}
             >
@@ -132,35 +144,27 @@ function App() {
                     </Authenticated>
                   }
                 >
-                  {/* Admin portal */}
-                  <Route path="/homeAdmin">
-                    <Route index element={<Dashboard />} />
-                    <Route path="createElection" element={<CreateElection />} />
-                    <Route path="showElection/:id" element={<ElectionDetailsAD />} />
-                    <Route path="showElection/:id/constituency/:cId" element={<ConstituencyDetails />} />
-                    <Route path="showElection/:id/constituency/:cId/polling-center/:centerId" element={<AdminPollingCenterDetails />} />
-                    <Route path="pending" element={<PendingApprovals />} />
-                  </Route>
-                  <Route path="/userslist">
-                    <Route index element={<UserList />} />
-                  </Route>
-
-                  {/* RO portal */}
-                  <Route path="/homeRO">
-                    <Route index element={<RoDashboard />} />
-                    <Route path="constituency/:cId" element={<RoConstituencyDetails />} />
-                    <Route path="constituency/:cId/polling-center/:centerId" element={<PollingCenterDetails />} />
+                  {/* Admin-only guard — redirects USERs to /homeUSER */}
+                  <Route element={<AdminGuard />}>
+                    {/* Admin portal */}
+                    <Route path="/homeAdmin">
+                      <Route index element={<Dashboard />} />
+                      <Route path="createElection" element={<CreateElection />} />
+                      <Route path="showElection/:id" element={<ElectionDetailsAD />} />
+                      <Route path="showElection/:id/constituency/:cId" element={<ConstituencyDetails />} />
+                      <Route path="showElection/:id/constituency/:cId/polling-center/:centerId" element={<AdminPollingCenterDetails />} />
+                      <Route path="pending" element={<PendingApprovals />} />
+                    </Route>
+                    <Route path="/userslist">
+                      <Route index element={<UserList />} />
+                    </Route>
                   </Route>
 
-                  {/* PO portal */}
-                  <Route path="/homePO">
-                    <Route index element={<PoDashboard />} />
-                  </Route>
-
-                  {/* PRO portal */}
-                  <Route path="/homePRO">
-                    <Route index element={<ProDashboard />} />
-                    <Route path="polling-center/:centerId" element={<ProPollingCenterDetails />} />
+                  {/* USER portal — only accessible to USER role */}
+                  <Route element={<UserGuard />}>
+                    <Route path="/homeUSER">
+                      <Route index element={<UserDashboard />} />
+                    </Route>
                   </Route>
 
                   {/* Authenticated root: redirect based on role */}

@@ -2,13 +2,6 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Origami, Loader2, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router';
 
@@ -17,7 +10,6 @@ const SignupPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [role, setRole] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -31,17 +23,12 @@ const SignupPage: React.FC = () => {
             return;
         }
 
-        if (!role) {
-            setErrorMsg('Please select a role.');
-            return;
-        }
-
         setIsLoading(true);
         try {
             const res = await fetch('http://localhost:3001/api/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password, role }),
+                body: JSON.stringify({ name, email, password }),
             });
 
             const data = await res.json();
@@ -170,26 +157,6 @@ const SignupPage: React.FC = () => {
                                 minLength={8}
                                 autoComplete="new-password"
                             />
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="role">Requested Role</Label>
-                            <Select value={role} onValueChange={setRole}>
-                                <SelectTrigger id="role">
-                                    <SelectValue placeholder="Select a role…" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="RO">
-                                        Returning Officer (RO)
-                                    </SelectItem>
-                                    <SelectItem value="PO">
-                                        Polling Officer (PO)
-                                    </SelectItem>
-                                    <SelectItem value="PRO">
-                                        Presiding Officer (PRO)
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
 
                         {errorMsg && (

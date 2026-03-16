@@ -46,9 +46,7 @@ export const authProvider: AuthProvider = {
 
             const homeMap: Record<string, string> = {
                 ADMIN: '/homeAdmin',
-                RO: '/homeRO',
-                PO: '/homePO',
-                PRO: '/homePRO',
+                USER: '/homeUSER',
             };
 
             return { success: true, redirectTo: homeMap[role] ?? '/homeAdmin' };
@@ -84,7 +82,7 @@ export const authProvider: AuthProvider = {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role ?? 'PO',
+                role: user.role ?? 'USER',
                 approved: user.approved ?? false,
                 avatar: user.image,
             };

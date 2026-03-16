@@ -33,11 +33,6 @@ app.use("/api/polling_center_of_election", require("./routes/polling_center_of_e
 app.use("/api/polling_booth", require("./routes/polling_booth"));
 
 
-// ── New role-based routes ─────────────────────────────────────────────────────
-app.use("/api/ro", require("./routes/ro"));
-app.use("/api/po", require("./routes/po"));
-app.use("/api/pro", require("./routes/pro"));
-
 // ── Sign-up (public) & Admin approval ────────────────────────────────────────
 app.use("/api/signup", require("./routes/signup"));
 app.use("/api/admin", require("./routes/admin"));

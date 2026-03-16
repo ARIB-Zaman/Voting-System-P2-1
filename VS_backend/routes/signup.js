@@ -6,21 +6,15 @@ const { auth } = require('../auth');
 /**
  * POST /api/signup
  * Public endpoint — creates a new user with approved = false.
- * Body: { name, email, password, role }
- * role must be 'RO', 'PO', or 'PRO' (ADMIN cannot be self-registered).
+ * Body: { name, email, password }
+ * All self-registered users receive the 'USER' role. ADMIN cannot be self-registered.
  */
 router.post('/', async (req, res) => {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     // Validate required fields
-    if (!name || !email || !password || !role) {
-        return res.status(400).json({ error: 'All fields are required (name, email, password, role).' });
-    }
-
-    // Only RO, PO, and PRO can self-register
-    const allowedRoles = ['RO', 'PO', 'PRO'];
-    if (!allowedRoles.includes(role)) {
-        return res.status(400).json({ error: 'Role must be RO, PO, or PRO.' });
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: 'All fields are required (name, email, password).' });
     }
 
     // Check if email already exists
@@ -36,10 +30,10 @@ router.post('/', async (req, res) => {
         });
 
         if (result && result.user) {
-            // Set the role and approved = false
+            // Set role to USER and approved = false (requires admin approval)
             await pool.query(
                 'UPDATE "user" SET role = $1, approved = false WHERE id = $2',
-                [role, result.user.id]
+                ['USER', result.user.id]
             );
 
             // Delete any session BetterAuth may have created during sign-up

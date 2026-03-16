@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -27,7 +26,6 @@ interface PendingUser {
     id: string;
     name: string;
     email: string;
-    role: string;
     createdAt: string;
 }
 
@@ -160,9 +158,6 @@ const PendingApprovals: React.FC = () => {
                                     Email
                                 </TableHead>
                                 <TableHead className="px-6 py-4 text-xs font-bold uppercase tracking-wider">
-                                    Requested Role
-                                </TableHead>
-                                <TableHead className="px-6 py-4 text-xs font-bold uppercase tracking-wider">
                                     Signed Up
                                 </TableHead>
                                 <TableHead className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-right">
@@ -174,7 +169,7 @@ const PendingApprovals: React.FC = () => {
                             {users.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={5}
+                                        colSpan={4}
                                         className="text-center py-16 text-muted-foreground"
                                     >
                                         <div className="flex flex-col items-center gap-2">
@@ -203,23 +198,6 @@ const PendingApprovals: React.FC = () => {
                                             </TableCell>
                                             <TableCell className="px-6 py-4 text-sm text-muted-foreground">
                                                 {u.email}
-                                            </TableCell>
-                                            <TableCell className="px-6 py-4">
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`border-0 text-xs font-bold rounded-full px-2.5 py-0.5 ${u.role === 'RO'
-                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                                        : u.role === 'PRO'
-                                                            ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
-                                                            : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
-                                                        }`}
-                                                >
-                                                    {u.role === 'RO'
-                                                        ? 'Returning Officer'
-                                                        : u.role === 'PRO'
-                                                            ? 'Presiding Officer'
-                                                            : 'Polling Officer'}
-                                                </Badge>
                                             </TableCell>
                                             <TableCell className="px-6 py-4 text-sm text-muted-foreground">
                                                 {formatDate(u.createdAt)}

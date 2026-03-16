@@ -5,13 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { LogIn, UserPlus, Loader2, CheckCircle2, X } from 'lucide-react';
 import type { Application } from '@splinetool/runtime';
 
@@ -263,11 +256,10 @@ const LoginForm: React.FC<{ onSwitch: () => void; onClose: () => void }> = ({
                 <p className="text-xs text-center text-white/40 font-medium mb-3">
                     Development Accounts
                 </p>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-2 gap-2 text-center">
                     {[
                         { label: 'Admin', email: 'admin@election.dev' },
-                        { label: 'RO', email: 'ro@election.dev' },
-                        { label: 'PO', email: 'po@election.dev' },
+                        { label: 'User', email: 'user@election.dev' },
                     ].map((acc) => (
                         <button
                             key={acc.email}
@@ -307,13 +299,11 @@ const LoginForm: React.FC<{ onSwitch: () => void; onClose: () => void }> = ({
 
 const SignupForm: React.FC<{ onSwitch: () => void; onClose: () => void }> = ({
     onSwitch,
-    onClose,
 }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [role, setRole] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -326,17 +316,12 @@ const SignupForm: React.FC<{ onSwitch: () => void; onClose: () => void }> = ({
             setErrorMsg('Passwords do not match.');
             return;
         }
-        if (!role) {
-            setErrorMsg('Please select a role.');
-            return;
-        }
-
         setIsLoading(true);
         try {
             const res = await fetch('http://localhost:3001/api/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password, role }),
+                body: JSON.stringify({ name, email, password }),
             });
             const data = await res.json();
             if (!res.ok) {
@@ -466,31 +451,6 @@ const SignupForm: React.FC<{ onSwitch: () => void; onClose: () => void }> = ({
                         autoComplete="new-password"
                         className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20"
                     />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="role" className="text-white/70 text-sm">
-                        Requested Role
-                    </Label>
-                    <Select value={role} onValueChange={setRole}>
-                        <SelectTrigger
-                            id="role"
-                            className="bg-white/5 border-white/10 text-white [&>span]:text-white/30 focus:ring-white/20"
-                        >
-                            <SelectValue placeholder="Select a role…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="RO">
-                                Returning Officer (RO)
-                            </SelectItem>
-                            <SelectItem value="PO">
-                                Polling Officer (PO)
-                            </SelectItem>
-                            <SelectItem value="PRO">
-                                Presiding Officer (PRO)
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
                 </div>
 
                 {errorMsg && (
