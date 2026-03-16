@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Polling Center &amp; Booth Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex h-auto min-h-screen w-full bg-background-light dark:bg-background-dark group/design-root overflow-x-hidden">
+<div class="flex flex-col w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 min-h-screen sticky top-0 h-screen overflow-y-auto">
+<div class="flex h-full flex-col justify-between p-4">
+<div class="flex flex-col gap-4">
+<div class="flex gap-3 items-center mb-6">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 bg-primary/20" data-alt="Admin portal logo abstract" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB6efL-jrh4nH0h6HYeHt4pGN1vNBk8Moh06gXSzNay63FJCb-GXiPUZak5xmb6KYeLsCQ6-YzOABf3u7ouU-xD7R3ZUA4IHfNPOybKelf3V-JZU4YGAh6mMeNgAMXE1T6GfRHGUyfx5JO03MIyiakmksjtromrFPvePUs36fHjSSk1gAr44T67F0NOsK2q4Owm1ZsKzVhZ8C0GgIrTVWeQ507lskhBtVJ84Z1EyqNfvXDJa2VTr4uC0hqjSu5u94wrZHNgptsqnSI");'></div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-slate-100 text-base font-bold leading-normal">Admin Portal</h1>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-normal leading-normal">Voting System</p>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">dashboard</span>
+<p class="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">how_to_vote</span>
+<p class="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal">Elections</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 dark:bg-primary/20" href="#">
+<span class="material-symbols-outlined text-primary">location_city</span>
+<p class="text-primary text-sm font-bold leading-normal">Polling Centers</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">groups</span>
+<p class="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal">Voters</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">settings</span>
+<p class="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal">Settings</p>
+</a>
+</div>
+</div>
+<button class="flex min-w-[84px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors mt-8">
+<span class="material-symbols-outlined mr-2 text-sm">logout</span>
+<span class="truncate">Logout</span>
+</button>
+</div>
+</div>
+<div class="flex-1 flex flex-col p-6 max-w-7xl mx-auto w-full">
+<div class="mb-8">
+<div class="flex flex-wrap justify-between items-start gap-4 mb-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+<div class="flex flex-col gap-2">
+<p class="text-primary text-sm font-bold uppercase tracking-wider">Election</p>
+<h2 class="text-slate-900 dark:text-slate-100 text-3xl font-black leading-tight tracking-[-0.033em]">General Election 2024</h2>
+<div class="flex gap-4 mt-2">
+<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+<span class="size-1.5 rounded-full bg-green-500"></span>
+                                Upcoming
+                            </span>
+<p class="text-slate-600 dark:text-slate-400 text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-base">calendar_today</span>
+                                Nov 5 - Nov 6
+                            </p>
+<p class="text-slate-600 dark:text-slate-400 text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-base">schedule</span>
+                                8:00 AM - 8:00 PM
+                            </p>
+</div>
+</div>
+</div>
+<div class="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">map</span>
+<h3 class="text-slate-800 dark:text-slate-200 text-lg font-bold">Constituency: North District <span class="text-slate-500 dark:text-slate-400 font-normal text-sm ml-2">(Region: North, RO: John Doe)</span></h3>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-8 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-500">store</span>
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold">Polling Center Information</h2>
+</div>
+<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-1 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Name</p>
+<p class="text-slate-900 dark:text-slate-100 text-base font-bold">Central High School</p>
+</div>
+<div class="flex flex-col gap-1 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Address</p>
+<p class="text-slate-900 dark:text-slate-100 text-base font-bold">123 Education Way</p>
+</div>
+</div>
+</div>
+<div class="mb-8">
+<div class="flex justify-between items-center mb-6">
+<h2 class="text-slate-900 dark:text-slate-100 text-2xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">how_to_vote</span>
+                        Polling Booths
+                    </h2>
+<button class="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm">add</span>
+                        Add New Polling Booth
+                    </button>
+</div>
+<div class="flex flex-col gap-4">
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+<div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between md:items-center bg-slate-50 dark:bg-slate-800/50 gap-4">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">1</div>
+<div>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold min-w-[100px]">Booth 1</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 md:hidden mt-1">2 Officers Assigned</p>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:text-primary hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+                                Add Officer
+                            </button>
+<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-1.5 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-md transition-colors" title="Edit Booth">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" title="Delete Booth">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+<div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-medium text-xs">AS</div>
+<div>
+<p class="text-sm font-bold text-slate-900 dark:text-slate-100">Alice Smith</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Presiding Officer</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm cursor-pointer hover:text-red-500">close</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-medium text-xs">BJ</div>
+<div>
+<p class="text-sm font-bold text-slate-900 dark:text-slate-100">Bob Johnson</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Polling Officer 1</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm cursor-pointer hover:text-red-500">close</span>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+<div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between md:items-center bg-slate-50 dark:bg-slate-800/50 gap-4">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">2</div>
+<div>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold min-w-[100px]">Booth 2</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 md:hidden mt-1">1 Officer Assigned</p>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:text-primary hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+                                Add Officer
+                            </button>
+<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-1.5 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-md transition-colors" title="Edit Booth">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" title="Delete Booth">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+<div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-medium text-xs">CD</div>
+<div>
+<p class="text-sm font-bold text-slate-900 dark:text-slate-100">Carol Davis</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Presiding Officer</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm cursor-pointer hover:text-red-500">close</span>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+<div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between md:items-center bg-slate-50 dark:bg-slate-800/50 gap-4">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">3</div>
+<div>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold min-w-[100px]">Booth 3</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 md:hidden mt-1">2 Officers Assigned</p>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:text-primary hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+                                Add Officer
+                            </button>
+<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-1.5 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-md transition-colors" title="Edit Booth">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" title="Delete Booth">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+<div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-medium text-xs">ET</div>
+<div>
+<p class="text-sm font-bold text-slate-900 dark:text-slate-100">Eve Taylor</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Presiding Officer</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm cursor-pointer hover:text-red-500">close</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-medium text-xs">FW</div>
+<div>
+<p class="text-sm font-bold text-slate-900 dark:text-slate-100">Frank White</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Polling Officer 1</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm cursor-pointer hover:text-red-500">close</span>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+<div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between md:items-center bg-slate-50 dark:bg-slate-800/50 gap-4">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">4</div>
+<div>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold min-w-[100px]">Booth 4</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 md:hidden mt-1">1 Officer Assigned</p>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:text-primary hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+                                Add Officer
+                            </button>
+<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-1.5 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-md transition-colors" title="Edit Booth">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" title="Delete Booth">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+<div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-medium text-xs">GH</div>
+<div>
+<p class="text-sm font-bold text-slate-900 dark:text-slate-100">Grace Hall</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Presiding Officer</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-sm cursor-pointer hover:text-red-500">close</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>
