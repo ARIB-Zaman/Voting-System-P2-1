@@ -29,5 +29,23 @@ router.get("/unassigned/:electionId", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// GET unassigned polling centers for a constituency in a specific election
+router.get("/:constituencyId/polling_centers/unassigned/:electionId", async (req, res) => {
+  try {
+    const { constituencyId, electionId } = req.params;
+    const result = await pool.query(
+      `SELECT id, name, address FROM polling_center
+       WHERE constituency_id = $1
+         AND id NOT IN (
+           SELECT polling_center_id FROM polling_center_of_election WHERE election_id = $2
+         )
+       ORDER BY name`,
+      [constituencyId, electionId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;
