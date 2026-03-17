@@ -26,6 +26,7 @@ import PendingApprovals from './pages/admin/pendingApprovals';
 import ConstituencyDetails from './pages/constituencyDetails';
 import AdminPollingCenterDetails from './pages/admin/adminPollingCenterDetails';
 import UserDashboard from './pages/user/userDashboard';
+import ElectionEntry from './pages/user/election/ElectionEntry';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
 function homePathForRole(role?: string): string {
@@ -35,7 +36,7 @@ function homePathForRole(role?: string): string {
     case 'USER':
       return '/homeUSER';
     default:
-      return '/homeUSER';
+      return '/homeAdmin';
   }
 }
 
@@ -164,6 +165,7 @@ function App() {
                   <Route element={<UserGuard />}>
                     <Route path="/homeUSER">
                       <Route index element={<UserDashboard />} />
+                      <Route path="election/:id" element={<ElectionEntry />} />
                     </Route>
                   </Route>
 

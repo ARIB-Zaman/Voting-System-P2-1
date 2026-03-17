@@ -259,7 +259,7 @@ const LoginForm: React.FC<{ onSwitch: () => void; onClose: () => void }> = ({
                 <div className="grid grid-cols-2 gap-2 text-center">
                     {[
                         { label: 'Admin', email: 'admin@election.dev' },
-                        { label: 'User', email: 'user@election.dev' },
+                        { label: 'User', email: 'ro@election.dev' },
                     ].map((acc) => (
                         <button
                             key={acc.email}

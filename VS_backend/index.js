@@ -31,6 +31,7 @@ app.use("/api/constituency_of_election", require("./routes/constituency_of_elect
 app.use("/api/polling-center", require("./routes/pollingCenter"));
 app.use("/api/polling_center_of_election", require("./routes/polling_center_of_election"));
 app.use("/api/polling_booth", require("./routes/polling_booth"));
+app.use("/api/candidate", require("./routes/candidate"));
 
 
 // ── Sign-up (public) & Admin approval ────────────────────────────────────────
