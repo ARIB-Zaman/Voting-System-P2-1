@@ -19,6 +19,10 @@ interface ElectionAssignment {
   coe_id: string | number | null;
   /** Constituency display name — present only when role === 'RO' */
   constituency_name: string | null;
+  /** PK of polling_center_of_election — present only when role === 'PRO' */
+  poe_id: string | number | null;
+  /** Polling center physical ID — present only when role === 'PRO' */
+  polling_center_id: number | null;
 }
 
 /**
@@ -96,7 +100,16 @@ const ElectionEntry: React.FC = () => {
     );
   }
 
-  if (assignment.role === 'PRO') return <PRODashboard {...sharedProps} />;
+  if (assignment.role === 'PRO') {
+    return (
+      <PRODashboard
+        {...sharedProps}
+        electionId={assignment.election_id}
+        poeId={assignment.poe_id!}
+        pollingCenterId={assignment.polling_center_id!}
+      />
+    );
+  }
   return <PODashboard {...sharedProps} />;
 };
 

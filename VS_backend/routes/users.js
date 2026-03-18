@@ -52,7 +52,7 @@ router.get("/my-elections", async (req, res) => {
         } else if (row.role === 'PRO') {
           // relation_id → polling_center_of_election → polling_center
           const r = await pool.query(
-            `SELECT pc.name, pc.address
+            `SELECT pc.name, pc.address, poe.polling_center_id
              FROM polling_center_of_election poe
              JOIN polling_center pc ON pc.id = poe.polling_center_id
              WHERE poe.id = $1`,
@@ -81,10 +81,22 @@ router.get("/my-elections", async (req, res) => {
         let coe_id = null;
         let constituency_name = null;
 
+        // For PRO, expose poe_id and polling_center_id
+        let poe_id = null;
+        let polling_center_id = null;
+
         if (row.role === 'RO') {
           coe_id = row.relation_id;
           // location_label for RO is "name" or "name, region" — extract name part
           constituency_name = location_label ? location_label.split(',')[0].trim() : null;
+        } else if (row.role === 'PRO') {
+          poe_id = row.relation_id;
+          // Re-query polling_center_id from poe
+          const pcRow = await pool.query(
+            'SELECT polling_center_id FROM polling_center_of_election WHERE id = $1',
+            [row.relation_id]
+          );
+          if (pcRow.rows[0]) polling_center_id = pcRow.rows[0].polling_center_id;
         }
 
         return {
@@ -97,6 +109,8 @@ router.get("/my-elections", async (req, res) => {
           location_label,
           coe_id,
           constituency_name,
+          poe_id,
+          polling_center_id,
         };
       })
     );

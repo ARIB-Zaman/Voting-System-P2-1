@@ -16,7 +16,8 @@ router.get("/center/:centerId/election/:electionId", async (req, res) => {
          v.name,
          v.phone,
          v.voter_type,
-         voe.assigned_at
+         voe.assigned_at,
+         voe.booth_id
        FROM voter_of_election voe
        JOIN voter v ON v.nid = voe.nid
        WHERE voe.center_id = $1
@@ -186,4 +187,117 @@ router.delete("/:voeId", async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// BOOTH-LEVEL VOTER ALLOCATION (PRO Dashboard)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/voter-allocation/booth/:boothId/election/:electionId
+ * Voters assigned to this specific booth (booth_id = boothId).
+ */
+router.get("/booth/:boothId/election/:electionId", async (req, res) => {
+  const { boothId, electionId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT
+         voe.id,
+         voe.nid,
+         v.name,
+         v.phone,
+         v.voter_type,
+         voe.center_id
+       FROM voter_of_election voe
+       JOIN voter v ON v.nid = voe.nid
+       WHERE voe.booth_id = $1
+         AND voe.election_id = $2
+       ORDER BY v.name ASC`,
+      [boothId, electionId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * GET /api/voter-allocation/center/:centerId/election/:electionId/unassigned-booths
+ * Voters allocated to a center but NOT yet assigned to any booth (booth_id IS NULL).
+ */
+router.get("/center/:centerId/election/:electionId/unassigned-booths", async (req, res) => {
+  const { centerId, electionId } = req.params;
+  const { q = "", limit = "100" } = req.query;
+  try {
+    const search = `%${q}%`;
+    const result = await pool.query(
+      `SELECT
+         voe.id,
+         voe.nid,
+         v.name,
+         v.phone,
+         v.voter_type
+       FROM voter_of_election voe
+       JOIN voter v ON v.nid = voe.nid
+       WHERE voe.center_id = $1
+         AND voe.election_id = $2
+         AND voe.booth_id IS NULL
+         AND ($3 = '%%' OR v.name ILIKE $3 OR v.nid::text ILIKE $3 OR v.phone ILIKE $3)
+       ORDER BY v.name ASC
+       LIMIT $4`,
+      [centerId, electionId, search, parseInt(limit)]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * PUT /api/voter-allocation/:voeId/booth
+ * Assign (or unassign) a voter to a booth.
+ * Body: { booth_id: number | null }
+ */
+router.put("/:voeId/booth", async (req, res) => {
+  const { voeId } = req.params;
+  const { booth_id } = req.body;
+  try {
+    const result = await pool.query(
+      "UPDATE voter_of_election SET booth_id = $1 WHERE id = $2 RETURNING id, booth_id",
+      [booth_id ?? null, voeId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Allocation not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/voter-allocation/center/:centerId/election/:electionId/distribute
+ * Auto-distribute all unassigned voters (booth_id IS NULL) to booths
+ * using the DB function distribute_unassigned_voters(center_id, election_id).
+ */
+router.post("/center/:centerId/election/:electionId/distribute", async (req, res) => {
+  const { centerId, electionId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT distribute_unassigned_voters($1, $2) AS assigned_count`,
+      [centerId, electionId]
+    );
+    const assignedCount = result.rows[0]?.assigned_count ?? 0;
+    res.json({
+      assigned: assignedCount,
+      message: `${assignedCount} voter(s) distributed across booths`,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;
+

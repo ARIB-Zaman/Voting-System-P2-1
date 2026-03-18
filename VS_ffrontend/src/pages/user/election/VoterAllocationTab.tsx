@@ -374,7 +374,7 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
                             </h4>
                           </div>
                           
-                          <div className="flex-1 overflow-y-auto">
+                          <div className="overflow-y-auto max-h-[380px]">
                             {loadingAllocated ? (
                               <div className="flex items-center justify-center h-40">
                                 <Spinner className="size-6 text-muted-foreground" />
