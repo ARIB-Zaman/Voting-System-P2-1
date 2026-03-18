@@ -63,6 +63,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import VoterAllocationTab from './VoterAllocationTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -228,6 +229,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
 
   // ── Stats ───────────────────────────────────────────────────────────────────
   const [totalVoters, setTotalVoters] = useState<number | null>(null);
+  const [constituencyId, setConstituencyId] = useState<number | null>(null);
 
   // ── Fetch helpers ───────────────────────────────────────────────────────────
   const fetchPollingCenters = useCallback(async () => {
@@ -244,6 +246,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
       );
       if (!coe) return;
       const constituencyId = coe.constituency_id;
+      setConstituencyId(constituencyId);
 
       const centersRes = await fetch(
         `${API}/polling_center_of_election/election/${electionId}/constituency/${constituencyId}`
@@ -755,36 +758,19 @@ const RODashboard: React.FC<RODashboardProps> = ({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          TAB: Voter Allocation (placeholder)
+          TAB: Voter Allocation
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'voter-allocation' && (
-        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
-          <div className="border-b px-6 py-4">
-            <h2 className="font-bold text-lg">Voter Allocation</h2>
-            <p className="text-sm text-muted-foreground">Manage voter assignments across polling centers</p>
-          </div>
-          <div className="px-6 py-20 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 text-blue-600">
-              <Users className="h-7 w-7" />
-            </div>
-            <h3 className="text-lg font-bold mb-2">Coming Soon</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              The voter allocation module will allow you to assign voters from the electoral roll to specific polling centers. This feature is currently under development.
-            </p>
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-md text-left">
-              {[
-                { label: 'Total Allocated Voters', value: totalVoters !== null ? totalVoters.toLocaleString() : '—' },
-                { label: 'Polling Centers', value: String(pollingCenters.length) },
-                { label: 'Unallocated', value: '—' },
-              ].map((s) => (
-                <div key={s.label} className="bg-muted/40 rounded-lg p-3 border">
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
-                  <p className="text-lg font-bold mt-1">{s.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <VoterAllocationTab
+          electionId={electionId}
+          coeId={coeId}
+          constituencyId={constituencyId}
+          pollingCenters={pollingCenters}
+          onAllocationChanged={() => {
+            fetchTotalVoters();
+            fetchPollingCenters();
+          }}
+        />
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
