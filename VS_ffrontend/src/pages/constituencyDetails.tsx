@@ -52,6 +52,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
+  CheckCircle2,
   ChevronsUpDown,
   Eye,
   Info,
@@ -59,7 +60,9 @@ import {
   Plus,
   Search,
   Trash2,
+  UserCheck,
   Users,
+  XCircle,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -100,6 +103,13 @@ interface UnassignedPollingCenter {
 interface AssignableUser {
   id: string;
   name: string;
+}
+
+interface Candidate {
+  candidate_id: number;
+  name: string;
+  party: string;
+  nomination_status: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -226,6 +236,12 @@ const ConstituencyDetails: React.FC = () => {
   // ── Delete polling center state ─────────────────────────────────────────
   const [deletingPoeId, setDeletingPoeId] = useState<number | null>(null);
 
+  // ── Candidates state ────────────────────────────────────────────────────
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
+  const [updatingCandidateId, setUpdatingCandidateId] = useState<number | null>(null);
+
   // ── Fetch data ───────────────────────────────────────────────────────────
   const fetchElection = useCallback(async () => {
     if (!id) return;
@@ -288,6 +304,19 @@ const ConstituencyDetails: React.FC = () => {
     }
   }, [id, cId]);
 
+  const fetchCandidates = useCallback(async (coeId: number) => {
+    setCandidatesLoading(true);
+    try {
+      const res = await fetch(`${API}/candidate/coe/${coeId}`);
+      if (!res.ok) throw new Error('Failed to fetch candidates');
+      setCandidates(await res.json());
+    } catch {
+      // Non-critical
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -300,6 +329,13 @@ const ConstituencyDetails: React.FC = () => {
       setLoading(false);
     })();
   }, [fetchElection, fetchConstituency, fetchPollingCenters, fetchAssignableUsers]);
+
+  // Fetch candidates once the constituency (and its coe_id) is known
+  useEffect(() => {
+    if (constituency?.coe_id) {
+      fetchCandidates(constituency.coe_id);
+    }
+  }, [constituency, fetchCandidates]);
 
   // ── Add dialog open handler ─────────────────────────────────────────────
   const openAddDialog = async () => {
@@ -409,12 +445,58 @@ const ConstituencyDetails: React.FC = () => {
     }
   };
 
+  // ── Update candidate status ─────────────────────────────────────────────
+  const updateCandidateStatus = async (
+    candidateId: number,
+    status: 'APPROVED' | 'REJECTED'
+  ) => {
+    setUpdatingCandidateId(candidateId);
+    try {
+      const res = await fetch(`${API}/candidate/${candidateId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nomination_status: status }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+      const updated: Candidate = await res.json();
+      setCandidates((prev) =>
+        prev.map((c) => (c.candidate_id === candidateId ? updated : c))
+      );
+      toast.success(
+        status === 'APPROVED' ? 'Candidate approved' : 'Candidate rejected'
+      );
+    } catch {
+      toast.error('Failed to update candidate status');
+    } finally {
+      setUpdatingCandidateId(null);
+    }
+  };
+
   // ── Filter for add dialog search ────────────────────────────────────────
   const filteredUnassigned = unassignedCenters.filter(
     (c) =>
       c.name.toLowerCase().includes(addSearch.toLowerCase()) ||
       c.address.toLowerCase().includes(addSearch.toLowerCase())
   );
+
+  const filteredCandidates = candidates.filter(
+    (c) => c.nomination_status === statusFilter
+  );
+
+  const candidateStatusConfig = {
+    PENDING: {
+      label: 'Pending',
+      className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    },
+    APPROVED: {
+      label: 'Approved',
+      className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    },
+    REJECTED: {
+      label: 'Rejected',
+      className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    },
+  };
 
   // ── Loading / Error ──────────────────────────────────────────────────────
   if (loading) {
@@ -832,6 +914,175 @@ const ConstituencyDetails: React.FC = () => {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Showing {pollingCenters.length} center(s) in{' '}
                 {constituency.name}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Candidates ─────────────────────────────────────────────────── */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Candidates</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Review and approve or reject nominations for this constituency.
+            </p>
+          </div>
+
+          {/* Status filter toggle */}
+          <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
+            {(['PENDING', 'APPROVED', 'REJECTED'] as const).map((s) => {
+              const counts = {
+                PENDING: candidates.filter((c) => c.nomination_status === 'PENDING').length,
+                APPROVED: candidates.filter((c) => c.nomination_status === 'APPROVED').length,
+                REJECTED: candidates.filter((c) => c.nomination_status === 'REJECTED').length,
+              };
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    statusFilter === s
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {s.charAt(0) + s.slice(1).toLowerCase()}
+                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    s === 'PENDING'
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                      : s === 'APPROVED'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                  }`}>
+                    {counts[s]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
+                  Candidate Name
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
+                  Party
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
+                  Status
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {candidatesLoading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10">
+                    <Spinner className="size-5 mx-auto" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredCandidates.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="text-center py-12 text-muted-foreground"
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <UserCheck className="h-8 w-8 opacity-40" />
+                      <p className="font-medium">
+                        No {statusFilter.toLowerCase()} candidates
+                      </p>
+                      <p className="text-xs">
+                        {statusFilter === 'PENDING'
+                          ? 'All nominations have been reviewed.'
+                          : `No candidates have been ${statusFilter.toLowerCase()} yet.`}
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCandidates.map((c) => {
+                  const scfg = candidateStatusConfig[c.nomination_status];
+                  const isUpdating = updatingCandidateId === c.candidate_id;
+                  return (
+                    <TableRow
+                      key={c.candidate_id}
+                      className="hover:bg-muted/40 transition-colors"
+                    >
+                      <TableCell className="px-6 py-4">
+                        <p className="text-sm font-semibold">{c.name}</p>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <p className="text-sm text-muted-foreground">{c.party}</p>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <Badge
+                          variant="outline"
+                          className={`border-0 text-xs font-bold rounded-full px-2.5 py-0.5 uppercase tracking-tight ${scfg.className}`}
+                        >
+                          {scfg.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <div className="flex gap-1 justify-end">
+                          {/* Always show Approve unless already approved */}
+                          {c.nomination_status !== 'APPROVED' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                              title="Approve candidate"
+                              disabled={isUpdating}
+                              onClick={() =>
+                                updateCandidateStatus(c.candidate_id, 'APPROVED')
+                              }
+                            >
+                              {isUpdating ? (
+                                <Spinner className="size-4" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          {/* Always show Reject unless already rejected */}
+                          {c.nomination_status !== 'REJECTED' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              title="Reject candidate"
+                              disabled={isUpdating}
+                              onClick={() =>
+                                updateCandidateStatus(c.candidate_id, 'REJECTED')
+                              }
+                            >
+                              {isUpdating ? (
+                                <Spinner className="size-4" />
+                              ) : (
+                                <XCircle className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          {candidates.length > 0 && (
+            <div className="px-6 py-3 bg-muted/30 border-t">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {filteredCandidates.length} {statusFilter.toLowerCase()} candidate(s) · {candidates.length} total
               </p>
             </div>
           )}

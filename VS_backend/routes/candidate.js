@@ -47,6 +47,34 @@ router.post("/", async (req, res) => {
 });
 
 /**
+ * PUT /api/candidate/:id/status
+ * Update nomination_status — APPROVED or REJECTED
+ */
+router.put("/:id/status", async (req, res) => {
+  const { id } = req.params;
+  const { nomination_status } = req.body;
+  if (!["APPROVED", "REJECTED", "PENDING"].includes(nomination_status)) {
+    return res.status(400).json({ error: "nomination_status must be APPROVED, REJECTED, or PENDING" });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE candidate
+       SET nomination_status = $1
+       WHERE candidate_id = $2
+       RETURNING candidate_id, name, party, nomination_status`,
+      [nomination_status, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Candidate not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
  * DELETE /api/candidate/:id
  * Remove a candidate
  */
