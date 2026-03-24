@@ -33,6 +33,7 @@ app.use("/api/polling_center_of_election", require("./routes/polling_center_of_e
 app.use("/api/polling_booth", require("./routes/polling_booth"));
 app.use("/api/candidate", require("./routes/candidate"));
 app.use("/api/voter-allocation", require("./routes/voterAllocation"));
+app.use("/api/kiosk", require("./routes/kiosk"));
 
 
 // ── Sign-up (public) & Admin approval ────────────────────────────────────────
