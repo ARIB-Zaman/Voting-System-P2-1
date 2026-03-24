@@ -27,6 +27,12 @@ import ConstituencyDetails from './pages/constituencyDetails';
 import AdminPollingCenterDetails from './pages/admin/adminPollingCenterDetails';
 import UserDashboard from './pages/user/userDashboard';
 import ElectionEntry from './pages/user/election/ElectionEntry';
+import KioskLayout from './pages/kiosk/KioskLayout';
+import KioskElections from './pages/kiosk/KioskElections';
+import KioskConstituencies from './pages/kiosk/KioskConstituencies';
+import KioskPollingCenters from './pages/kiosk/KioskPollingCenters';
+import KioskBooths from './pages/kiosk/KioskBooths';
+import KioskVoting from './pages/kiosk/KioskVoting';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
 function homePathForRole(role?: string): string {
@@ -134,6 +140,15 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
+
+                {/* ── Kiosk routes (no auth required) ─────────────────── */}
+                <Route element={<KioskLayout />}>
+                  <Route path="/kiosk" element={<KioskElections />} />
+                  <Route path="/kiosk/election/:electionId" element={<KioskConstituencies />} />
+                  <Route path="/kiosk/election/:electionId/constituency/:constituencyId" element={<KioskPollingCenters />} />
+                  <Route path="/kiosk/election/:electionId/constituency/:constituencyId/center/:centerId" element={<KioskBooths />} />
+                  <Route path="/kiosk/election/:electionId/constituency/:constituencyId/center/:centerId/booth/:boothId/vote" element={<KioskVoting />} />
+                </Route>
 
                 {/* ── Protected routes (all share the same Layout/sidebar) ── */}
                 <Route
