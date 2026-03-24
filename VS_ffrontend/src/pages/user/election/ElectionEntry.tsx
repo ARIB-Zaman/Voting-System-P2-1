@@ -23,6 +23,8 @@ interface ElectionAssignment {
   poe_id: string | number | null;
   /** Polling center physical ID — present only when role === 'PRO' */
   polling_center_id: number | null;
+  /** polling_booth.id — present only when role === 'PO' */
+  booth_id: string | number | null;
 }
 
 /**
@@ -110,7 +112,7 @@ const ElectionEntry: React.FC = () => {
       />
     );
   }
-  return <PODashboard {...sharedProps} />;
+  return <PODashboard {...sharedProps} electionId={assignment.election_id} boothId={assignment.booth_id!} />;
 };
 
 export default ElectionEntry;

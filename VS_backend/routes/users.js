@@ -85,6 +85,9 @@ router.get("/my-elections", async (req, res) => {
         let poe_id = null;
         let polling_center_id = null;
 
+        // For PO, expose booth_id
+        let booth_id = null;
+
         if (row.role === 'RO') {
           coe_id = row.relation_id;
           // location_label for RO is "name" or "name, region" — extract name part
@@ -97,6 +100,8 @@ router.get("/my-elections", async (req, res) => {
             [row.relation_id]
           );
           if (pcRow.rows[0]) polling_center_id = pcRow.rows[0].polling_center_id;
+        } else if (row.role === 'PO') {
+          booth_id = row.relation_id;
         }
 
         return {
@@ -111,6 +116,7 @@ router.get("/my-elections", async (req, res) => {
           constituency_name,
           poe_id,
           polling_center_id,
+          booth_id,
         };
       })
     );

@@ -204,6 +204,7 @@ router.get("/booth/:boothId/election/:electionId", async (req, res) => {
          voe.nid,
          v.name,
          v.phone,
+         v.email,
          v.voter_type,
          voe.center_id
        FROM voter_of_election voe
@@ -214,6 +215,30 @@ router.get("/booth/:boothId/election/:electionId", async (req, res) => {
       [boothId, electionId]
     );
     res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/voter-allocation/:voeId/generate-otp
+ * Generate (or regenerate) an OTP for a voter.
+ * Calls the DB function generate_voter_otp(voter_of_election_id) which
+ * inserts/updates voter_otp and returns the generated OTP string.
+ */
+router.post("/:voeId/generate-otp", async (req, res) => {
+  const { voeId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT generate_voter_otp($1) AS otp`,
+      [voeId]
+    );
+    const otp = result.rows[0]?.otp;
+    if (otp === null || otp === undefined) {
+      return res.status(404).json({ error: "Voter allocation not found or OTP generation failed" });
+    }
+    res.json({ otp });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
