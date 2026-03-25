@@ -137,6 +137,80 @@ router.get("/:id/results", async (req, res) => {
     }
 });
 
+// GET /:electionId/constituency/:constituencyId/results — full detail for one constituency
+router.get("/:electionId/constituency/:constituencyId/results", async (req, res) => {
+    const { electionId, constituencyId } = req.params;
+    try {
+        // 1. Resolve coe_id and basic info
+        const coeRes = await pool.query(
+            `SELECT coe.id AS coe_id, c.name, c.region
+             FROM constituency_of_election coe
+             JOIN constituency c ON c.id = coe.constituency_id
+             WHERE coe.election_id = $1 AND coe.constituency_id = $2`,
+            [electionId, constituencyId]
+        );
+        if (coeRes.rows.length === 0) {
+            return res.status(404).json({ error: "Constituency not found in this election" });
+        }
+        const { coe_id, name, region } = coeRes.rows[0];
+
+        // 2. Total registered voters for this constituency in this election
+        const votersRes = await pool.query(
+            `SELECT COUNT(*) AS total_voters
+             FROM voter_of_election voe
+             JOIN voter v ON v.nid = voe.nid
+             WHERE voe.election_id = $1 AND v.constituency_id = $2`,
+            [electionId, constituencyId]
+        );
+        const total_voters = parseInt(votersRes.rows[0].total_voters, 10);
+
+        // 3. Candidate vote breakdown
+        const candidatesRes = await pool.query(
+            `SELECT ca.candidate_id, ca.name, ca.party,
+                    COUNT(vl.candidate_id) AS votes
+             FROM candidate ca
+             LEFT JOIN voting_log vl
+               ON vl.candidate_id = ca.candidate_id
+               AND vl.constituency_of_election_id = $1
+               AND vl.candidate_id IS NOT NULL
+             WHERE ca.constituency_of_election_id = $1
+             GROUP BY ca.candidate_id, ca.name, ca.party
+             ORDER BY votes DESC`,
+            [coe_id]
+        );
+        const candidates = candidatesRes.rows.map(r => ({
+            ...r,
+            votes: parseInt(r.votes, 10),
+        }));
+
+        // 4. Hourly vote timeline
+        const timelineRes = await pool.query(
+            `SELECT
+               date_trunc('hour', vote_time) AS hour,
+               COUNT(*)                       AS votes
+             FROM voting_log
+             WHERE constituency_of_election_id = $1
+               AND candidate_id IS NOT NULL
+             GROUP BY date_trunc('hour', vote_time)
+             ORDER BY hour`,
+            [coe_id]
+        );
+        const timeline = timelineRes.rows.map(r => ({
+            hour: r.hour,
+            votes: parseInt(r.votes, 10),
+        }));
+
+        const votes_cast = candidates.reduce((s, c) => s + c.votes, 0);
+        const winner = candidates[0] ?? null;
+
+        res.json({ coe_id, name, region, total_voters, votes_cast, winner, candidates, timeline });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
 // PUT /:id/finalize — set election status to FINALIZED
 router.put("/:id/finalize", async (req, res) => {
     const { id } = req.params;
