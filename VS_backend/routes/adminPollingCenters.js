@@ -87,6 +87,100 @@ router.post('/', async (req, res) => {
 });
 
 /**
+ * POST /api/admin-polling-centers/bulk
+ * Bulk create polling centers from CSV upload.
+ * Body: { centers: [{ name, address, constituency_id, lat, lng }] }
+ */
+router.post('/bulk', async (req, res) => {
+  const { centers } = req.body;
+  
+  if (!Array.isArray(centers) || centers.length === 0) {
+    return res.status(400).json({ error: 'No polling centers provided' });
+  }
+
+  const results = {
+    total: centers.length,
+    inserted: 0,
+    failed: 0,
+    errors: []
+  };
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const namesInBatch = new Set();
+
+    for (let i = 0; i < centers.length; i++) {
+      const row = centers[i];
+      const rowNum = i + 1; // 1-indexed for user friendly errors
+      
+      const name = row.name ? String(row.name).trim() : '';
+      const address = row.address ? String(row.address).trim() : '';
+      const constituency_id = parseInt(row.constituency_id, 10);
+      const lat = row.latitude ? parseFloat(row.latitude) : null;
+      const lng = row.longitude ? parseFloat(row.longitude) : null;
+
+      if (!name || !address || isNaN(constituency_id)) {
+        results.failed++;
+        results.errors.push(`Row ${rowNum}: Missing 'name', 'address', or valid 'constituency_id'.`);
+        continue;
+      }
+
+      const lowerName = name.toLowerCase();
+
+      if (namesInBatch.has(lowerName)) {
+        results.failed++;
+        results.errors.push(`Row ${rowNum}: Duplicate name "${name}" found within the CSV file.`);
+        continue;
+      }
+      
+      const dupQuery = await client.query(
+        'SELECT id FROM polling_center WHERE LOWER(name) = $1',
+        [lowerName]
+      );
+      
+      if (dupQuery.rows.length > 0) {
+        results.failed++;
+        results.errors.push(`Row ${rowNum}: Polling center named "${name}" already exists in the system.`);
+        continue;
+      }
+
+      const constQuery = await client.query(
+        'SELECT id FROM constituency WHERE id = $1',
+        [constituency_id]
+      );
+
+      if (constQuery.rows.length === 0) {
+        results.failed++;
+        results.errors.push(`Row ${rowNum}: Constituency ID ${constituency_id} does not exist.`);
+        continue;
+      }
+
+      await client.query(
+        `INSERT INTO polling_center (name, address, constituency_id, lat, lng)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [name, address, constituency_id, isNaN(lat) ? null : lat, isNaN(lng) ? null : lng]
+      );
+      
+      namesInBatch.add(lowerName);
+      results.inserted++;
+    }
+
+    await client.query("COMMIT");
+    res.json({ message: "Bulk upload complete", results });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Bulk upload error:", err);
+    res.status(500).json({ error: "Server error during bulk upload: " + err.message });
+  } finally {
+    client.release();
+  }
+});
+
+/**
  * PUT /api/admin-polling-centers/:id
  * Update a polling center.
  * Body: { name, address, constituency_id, lat, lng }

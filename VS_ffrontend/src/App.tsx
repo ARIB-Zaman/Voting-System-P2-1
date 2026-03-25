@@ -31,6 +31,7 @@ import BulkUploadVoters from './pages/admin/voters/BulkUploadVoters';
 import ManageVoters from './pages/admin/voters/ManageVoters';
 import AddPollingCenter from './pages/admin/pollingCenters/AddPollingCenter';
 import ManagePollingCenters from './pages/admin/pollingCenters/ManagePollingCenters';
+import BulkUploadPollingCenters from './pages/admin/pollingCenters/BulkUploadPollingCenters';
 import ElectionEntry from './pages/user/election/ElectionEntry';
 import KioskLayout from './pages/kiosk/KioskLayout';
 import KioskElections from './pages/kiosk/KioskElections';
@@ -161,6 +162,11 @@ function App() {
                   meta: { label: 'Add Polling Center', parent: 'polling-centers', role: 'ADMIN' },
                 },
                 {
+                  name: 'pc-bulk',
+                  list: '/homeAdmin/polling-centers/bulk',
+                  meta: { label: 'Bulk Upload', parent: 'polling-centers', role: 'ADMIN' },
+                },
+                {
                   name: 'pc-manage',
                   list: '/homeAdmin/polling-centers/manage',
                   meta: { label: 'Manage', parent: 'polling-centers', role: 'ADMIN' },
@@ -215,6 +221,7 @@ function App() {
                       </Route>
                       <Route path="polling-centers">
                         <Route path="add" element={<AddPollingCenter />} />
+                        <Route path="bulk" element={<BulkUploadPollingCenters />} />
                         <Route path="manage" element={<ManagePollingCenters />} />
                       </Route>
                     </Route>
