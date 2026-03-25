@@ -14,7 +14,7 @@ import { ThemeProvider } from './components/refine-ui/theme/theme-provider';
 import { dataProvider } from './providers/data';
 import { authProvider } from './providers/auth-provider';
 import Dashboard from './pages/dashboardav';
-import { ClipboardCheck, Home, Shield, Users } from 'lucide-react';
+import { ClipboardCheck, Home, Shield, Users, Building2 } from 'lucide-react';
 import { Layout } from './components/refine-ui/layout/layout';
 import CreateElection from './pages/createElection';
 import ElectionDetailsAD from './pages/electionDetailsAD';
@@ -29,6 +29,8 @@ import UserDashboard from './pages/user/userDashboard';
 import AddVoter from './pages/admin/voters/AddVoter';
 import BulkUploadVoters from './pages/admin/voters/BulkUploadVoters';
 import ManageVoters from './pages/admin/voters/ManageVoters';
+import AddPollingCenter from './pages/admin/pollingCenters/AddPollingCenter';
+import ManagePollingCenters from './pages/admin/pollingCenters/ManagePollingCenters';
 import ElectionEntry from './pages/user/election/ElectionEntry';
 import KioskLayout from './pages/kiosk/KioskLayout';
 import KioskElections from './pages/kiosk/KioskElections';
@@ -149,6 +151,20 @@ function App() {
                   list: '/homeAdmin/voters/manage',
                   meta: { label: 'Manage Voters', parent: 'voters', role: 'ADMIN' },
                 },
+                {
+                  name: 'polling-centers',
+                  meta: { label: 'Polling Centers', icon: <Building2 />, role: 'ADMIN' },
+                },
+                {
+                  name: 'pc-add',
+                  list: '/homeAdmin/polling-centers/add',
+                  meta: { label: 'Add Polling Center', parent: 'polling-centers', role: 'ADMIN' },
+                },
+                {
+                  name: 'pc-manage',
+                  list: '/homeAdmin/polling-centers/manage',
+                  meta: { label: 'Manage', parent: 'polling-centers', role: 'ADMIN' },
+                },
                 // ── USER resources ────────────────────────────────────────────
                 {
                   name: 'user-dashboard',
@@ -196,6 +212,10 @@ function App() {
                         <Route path="add" element={<AddVoter />} />
                         <Route path="bulk" element={<BulkUploadVoters />} />
                         <Route path="manage" element={<ManageVoters />} />
+                      </Route>
+                      <Route path="polling-centers">
+                        <Route path="add" element={<AddPollingCenter />} />
+                        <Route path="manage" element={<ManagePollingCenters />} />
                       </Route>
                     </Route>
                     <Route path="/userslist">

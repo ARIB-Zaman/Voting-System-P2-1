@@ -34,6 +34,7 @@ app.use("/api/polling_booth", require("./routes/polling_booth"));
 app.use("/api/candidate", require("./routes/candidate"));
 app.use("/api/voter-allocation", require("./routes/voterAllocation"));
 app.use("/api/voters", require("./routes/voters"));
+app.use("/api/admin-polling-centers", require("./routes/adminPollingCenters"));
 app.use("/api/kiosk", require("./routes/kiosk"));
 
 

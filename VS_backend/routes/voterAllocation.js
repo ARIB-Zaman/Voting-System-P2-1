@@ -112,41 +112,7 @@ router.post("/auto", async (req, res) => {
   }
 });
 
-/**
- * POST /api/voter-allocation/manual
- * Manually allocate a list of voters (by nid) to a polling center.
- * Body: { nids: string[], center_id, election_id, assigned_by }
- */
-router.post("/manual", async (req, res) => {
-  const { nids, center_id, election_id, assigned_by } = req.body;
-  if (!Array.isArray(nids) || nids.length === 0 || !center_id || !election_id) {
-    return res.status(400).json({ error: "nids[], center_id, and election_id are required" });
-  }
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const now = new Date().toISOString();
-    let allocated = 0;
-    for (const nid of nids) {
-      const r = await client.query(
-        `INSERT INTO voter_of_election (nid, election_id, center_id, assigned_by, assigned_at)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (nid, election_id) DO NOTHING
-         RETURNING id`,
-        [nid, election_id, center_id, assigned_by ?? null, now]
-      );
-      if (r.rows.length > 0) allocated++;
-    }
-    await client.query("COMMIT");
-    res.json({ allocated, skipped: nids.length - allocated });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  } finally {
-    client.release();
-  }
-});
+// (POST /manual was here, now replaced by /add below or moved)
 
 /**
  * DELETE /api/voter-allocation/center/:centerId/election/:electionId
@@ -167,11 +133,61 @@ router.delete("/center/:centerId/election/:electionId", async (req, res) => {
 });
 
 /**
+ * DELETE /api/voter-allocation/remove
+ * Remove a voter from an election after checking if they have already voted.
+ * Body: { nid, election_id }
+ * NOTE: Must be registered BEFORE /:voeId so Express doesn't swallow it.
+ */
+router.delete("/remove", async (req, res) => {
+  const { nid, election_id } = req.body;
+
+  if (!nid || !election_id) {
+    return res.status(400).json({ error: "nid and election_id are required" });
+  }
+
+  try {
+    // 1. Find the voe record
+    const voeResult = await pool.query(
+      "SELECT id FROM voter_of_election WHERE nid = $1 AND election_id = $2",
+      [nid, election_id]
+    );
+
+    if (voeResult.rows.length === 0) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+
+    const voeId = voeResult.rows[0].id;
+
+    // 2. Block removal if voter has already initiated OTP
+    const otpCheck = await pool.query(
+      "SELECT id FROM voter_otp WHERE voter_of_election_id = $1 LIMIT 1",
+      [voeId]
+    );
+
+    if (otpCheck.rows.length > 0) {
+      return res.status(400).json({
+        error: "Cannot remove voter. They have already started the voting process (OTP generated). Please clear their activity first."
+      });
+    }
+
+    // 3. Delete
+    await pool.query("DELETE FROM voter_of_election WHERE id = $1", [voeId]);
+    res.json({ message: "Voter removed from election" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
  * DELETE /api/voter-allocation/:voeId
- * Remove a single voter from a polling center.
+ * Remove a single voter allocation by its numeric ID.
  */
 router.delete("/:voeId", async (req, res) => {
   const { voeId } = req.params;
+  if (!/^\d+$/.test(voeId)) {
+    return res.status(404).json({ error: "Not found" });
+  }
   try {
     const result = await pool.query(
       "DELETE FROM voter_of_election WHERE id = $1 RETURNING id",
@@ -321,6 +337,76 @@ router.post("/center/:centerId/election/:electionId/distribute", async (req, res
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ELECTION-LEVEL VOTER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/voter-allocation/election/:electionId
+ * Voters already assigned to the election master list.
+ */
+router.get("/election/:electionId", async (req, res) => {
+  const { electionId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT
+         voe.id,
+         voe.nid,
+         v.name,
+         v.phone,
+         v.voter_type,
+         v.constituency_id,
+         voe.assigned_at
+       FROM voter_of_election voe
+       JOIN voter v ON v.nid = voe.nid
+       WHERE voe.election_id = $1
+       ORDER BY v.name ASC`,
+      [electionId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/voter-allocation/add
+ * Manually assign a single voter to an election.
+ * Body: { nid, election_id }
+ */
+router.post("/add", async (req, res) => {
+  const { nid, election_id } = req.body;
+  if (!nid || !election_id) {
+    return res.status(400).json({ error: "nid and election_id are required" });
+  }
+  try {
+    // 🔥 Get a valid ADMIN user ID for assigned_by
+    const adminResult = await pool.query('SELECT id FROM "user" WHERE role = \'ADMIN\' LIMIT 1');
+    if (adminResult.rows.length === 0) {
+       return res.status(500).json({ error: "No admin user found to perform assignment" });
+    }
+    const adminId = adminResult.rows[0].id;
+
+    const result = await pool.query(
+      `INSERT INTO voter_of_election (nid, election_id, assigned_by, assigned_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (nid, election_id) DO NOTHING
+       RETURNING id`,
+      [nid, election_id, adminId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Voter already assigned to this election" });
+    }
+
+    res.json({ message: "Voter assigned successfully", id: result.rows[0].id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error", detail: err.message });
   }
 });
 

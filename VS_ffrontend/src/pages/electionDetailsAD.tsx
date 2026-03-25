@@ -55,6 +55,7 @@ import {
   Eye,
   MapPin,
   Save,
+  Search,
   Trash2,
   Users,
   X,
@@ -223,6 +224,15 @@ const ElectionDetailsAD: React.FC = () => {
   // ── Remove constituency state ────────────────────────────────────────────
   const [deletingCoeId, setDeletingCoeId] = useState<number | null>(null);
 
+  // ── Voters Management state ──────────────────────────────────────────────
+  const [assignedVoters, setAssignedVoters] = useState<any[]>([]);
+  const [availableVoters, setAvailableVoters] = useState<any[]>([]);
+  const [voterSearch, setVoterSearch] = useState('');
+  const [voterConstituencyFilter, setVoterConstituencyFilter] = useState<string>('all');
+  const [loadingVoters, setLoadingVoters] = useState(false);
+  const [assigningVoterNid, setAssigningVoterNid] = useState<string | null>(null);
+  const [removingVoterNid, setRemovingVoterNid] = useState<string | null>(null);
+
   // ── Fetch data ───────────────────────────────────────────────────────────
   const fetchElection = useCallback(async () => {
     if (!id) return;
@@ -271,6 +281,46 @@ const ElectionDetailsAD: React.FC = () => {
     }
   }, [id]);
 
+  const fetchAssignedVoters = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await fetch(`${API}/voter-allocation/election/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch assigned voters');
+      const data = await res.json();
+      setAssignedVoters(data);
+    } catch (e: any) {
+      console.error(e.message);
+    }
+  }, [id]);
+
+  const fetchAvailableVoters = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoadingVoters(true);
+      const params = new URLSearchParams({
+        q: voterSearch,
+        election_id: id,
+        constituency_id: voterConstituencyFilter === 'all' ? '' : voterConstituencyFilter,
+        limit: '20'
+      });
+      
+      // The search endpoint requires constituency_id
+      if (!voterConstituencyFilter || voterConstituencyFilter === 'all') {
+        setAvailableVoters([]);
+        return;
+      }
+      
+      const res = await fetch(`${API}/voter-allocation/search?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch available voters');
+      const data = await res.json();
+      setAvailableVoters(data);
+    } catch (e: any) {
+      console.error(e.message);
+    } finally {
+      setLoadingVoters(false);
+    }
+  }, [id, voterSearch, voterConstituencyFilter]);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -278,11 +328,13 @@ const ElectionDetailsAD: React.FC = () => {
         fetchElection(),
         fetchConstituencies(),
         fetchAssignableUsers(),
-        fetchUnassignedConstituencies()
+        fetchUnassignedConstituencies(),
+        fetchAssignedVoters(),
+        fetchAvailableVoters()
       ]);
       setLoading(false);
     })();
-  }, [fetchElection, fetchConstituencies, fetchAssignableUsers, fetchUnassignedConstituencies]);
+  }, [fetchElection, fetchConstituencies, fetchAssignableUsers, fetchUnassignedConstituencies, fetchAssignedVoters, fetchAvailableVoters]);
 
   // ── Election edit handlers ───────────────────────────────────────────────
   const startEditInfo = () => {
@@ -421,6 +473,54 @@ const ElectionDetailsAD: React.FC = () => {
       toast.error('Failed to remove constituency');
     } finally {
       setDeletingCoeId(null);
+    }
+  };
+
+  // ── Voter actions ────────────────────────────────────────────────────────
+  const assignVoter = async (voter: any) => {
+    if (!id) return;
+    setAssigningVoterNid(voter.nid);
+    try {
+      const res = await fetch(`${API}/voter-allocation/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nid: voter.nid,
+          election_id: id,
+          assigned_by: 'admin'
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Assignment failed');
+      toast.success(`Voter ${voter.name} assigned`);
+      await Promise.all([fetchAssignedVoters(), fetchAvailableVoters()]);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setAssigningVoterNid(null);
+    }
+  };
+
+  const removeVoter = async (voter: any) => {
+    if (!id) return;
+    setRemovingVoterNid(voter.nid);
+    try {
+      const res = await fetch(`${API}/voter-allocation/remove`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nid: voter.nid,
+          election_id: id
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Removal failed');
+      toast.success(`Voter ${voter.name} removed`);
+      await Promise.all([fetchAssignedVoters(), fetchAvailableVoters()]);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setRemovingVoterNid(null);
     }
   };
 
@@ -868,6 +968,142 @@ const ElectionDetailsAD: React.FC = () => {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* ── Voter Management Section ───────────────────────────────────── */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-bold tracking-tight">Voters Management</h2>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Assigned Voters Table */}
+          <div className="lg:col-span-2 bg-card border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b bg-muted/30 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Assigned Voters
+                </h3>
+                <Badge variant="secondary" className="text-xs">
+                  {assignedVoters.length}
+                </Badge>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="px-6 py-3 text-xs font-bold uppercase">NID</TableHead>
+                    <TableHead className="px-6 py-3 text-xs font-bold uppercase">Name</TableHead>
+                    <TableHead className="px-6 py-3 text-xs font-bold uppercase">Type</TableHead>
+                    <TableHead className="px-6 py-3 text-xs font-bold uppercase text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assignedVoters.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-10 text-muted-foreground italic">
+                        No voters assigned yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    assignedVoters.map((v) => (
+                      <TableRow key={v.nid} className="hover:bg-muted/30">
+                        <TableCell className="px-6 py-3 font-mono text-xs">{v.nid}</TableCell>
+                        <TableCell className="px-6 py-3 font-medium">{v.name}</TableCell>
+                        <TableCell className="px-6 py-3">
+                          <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-tight">
+                            {v.voter_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-6 py-3 text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-destructive h-8 px-2"
+                            disabled={removingVoterNid === v.nid}
+                            onClick={() => removeVoter(v)}
+                          >
+                            {removingVoterNid === v.nid ? <Spinner className="size-3" /> : <X className="h-4 w-4 mr-1" />}
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Available Voters Picker */}
+          <div className="bg-card border rounded-xl shadow-sm p-6 space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              Add Available Voters
+            </h3>
+            
+            <div className="space-y-3">
+              <Select value={voterConstituencyFilter} onValueChange={setVoterConstituencyFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Filter by Constituency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Select Constituency</SelectItem>
+                  {constituencies.map(c => (
+                    <SelectItem key={c.constituency_id} value={c.constituency_id.toString()}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search NID/Name..." 
+                  className="pl-9 h-9"
+                  value={voterSearch}
+                  onChange={(e) => setVoterSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {loadingVoters ? (
+                <div className="py-10 text-center"><Spinner className="size-5 mx-auto" /></div>
+              ) : voterConstituencyFilter === 'all' ? (
+                <p className="text-xs text-center text-muted-foreground py-10">
+                  Select a constituency above to see available voters.
+                </p>
+              ) : availableVoters.length === 0 ? (
+                <p className="text-xs text-center text-muted-foreground py-10">
+                  No unassigned voters found in this constituency.
+                </p>
+              ) : (
+                <div className="grid gap-2">
+                  {availableVoters.map((v) => (
+                    <div 
+                      key={v.nid}
+                      className={`group flex items-center justify-between p-2 rounded-lg border bg-muted/20 hover:bg-primary/5 hover:border-primary/30 transition-all cursor-pointer ${
+                        assigningVoterNid === v.nid ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                      onClick={() => assignVoter(v)}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold truncate">{v.name}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">{v.nid}</p>
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Check className="h-4 w-4 text-primary" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       
