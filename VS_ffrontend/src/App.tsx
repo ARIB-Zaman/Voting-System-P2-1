@@ -28,6 +28,7 @@ import AdminPollingCenterDetails from './pages/admin/adminPollingCenterDetails';
 import UserDashboard from './pages/user/userDashboard';
 import AddVoter from './pages/admin/voters/AddVoter';
 import BulkUploadVoters from './pages/admin/voters/BulkUploadVoters';
+import ManageVoters from './pages/admin/voters/ManageVoters';
 import ElectionEntry from './pages/user/election/ElectionEntry';
 import KioskLayout from './pages/kiosk/KioskLayout';
 import KioskElections from './pages/kiosk/KioskElections';
@@ -143,6 +144,11 @@ function App() {
                   list: '/homeAdmin/voters/bulk',
                   meta: { label: 'Bulk Upload', parent: 'voters', role: 'ADMIN' },
                 },
+                {
+                  name: 'voter-manage',
+                  list: '/homeAdmin/voters/manage',
+                  meta: { label: 'Manage Voters', parent: 'voters', role: 'ADMIN' },
+                },
                 // ── USER resources ────────────────────────────────────────────
                 {
                   name: 'user-dashboard',
@@ -189,6 +195,7 @@ function App() {
                       <Route path="voters">
                         <Route path="add" element={<AddVoter />} />
                         <Route path="bulk" element={<BulkUploadVoters />} />
+                        <Route path="manage" element={<ManageVoters />} />
                       </Route>
                     </Route>
                     <Route path="/userslist">
