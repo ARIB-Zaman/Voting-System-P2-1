@@ -102,4 +102,57 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
+// GET /:id/results — per-constituency vote counts + turnout for CLOSED election
+router.get("/:id/results", async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT
+               coe.id                  AS coe_id,
+               c.name,
+               c.region,
+               -- registered voters in this election who belong to this constituency
+               (
+                 SELECT COUNT(*)
+                 FROM voter_of_election voe
+                 JOIN voter v ON v.nid = voe.nid
+                 WHERE voe.election_id = coe.election_id
+                   AND v.constituency_id = coe.constituency_id
+               )                       AS total_voters,
+               -- votes cast: rows in vote_log for this coe where candidate_id IS NOT NULL
+               COUNT(vl.candidate_id)  AS votes_cast
+             FROM constituency_of_election coe
+             JOIN constituency c ON c.id = coe.constituency_id
+             LEFT JOIN voting_log vl
+               ON vl.constituency_of_election_id = coe.id
+               AND vl.candidate_id IS NOT NULL
+             WHERE coe.election_id = $1
+             GROUP BY coe.id, c.name, c.region, coe.election_id
+             ORDER BY c.name`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /:id/finalize — set election status to FINALIZED
+router.put("/:id/finalize", async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query(
+            `UPDATE election SET status = 'FINALIZED' WHERE election_id = $1 RETURNING *`,
+            [id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Election not found" });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
+

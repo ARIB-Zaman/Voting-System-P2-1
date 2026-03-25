@@ -25,6 +25,8 @@ import LandingPage from './pages/landing';
 import PendingApprovals from './pages/admin/pendingApprovals';
 import ConstituencyDetails from './pages/constituencyDetails';
 import AdminPollingCenterDetails from './pages/admin/adminPollingCenterDetails';
+import ClosedElectionResults from './pages/closedElectionResults';
+import FinalizedElection from './pages/finalizedElection';
 import UserDashboard from './pages/user/userDashboard';
 import ElectionEntry from './pages/user/election/ElectionEntry';
 import KioskLayout from './pages/kiosk/KioskLayout';
@@ -169,6 +171,8 @@ function App() {
                       <Route path="showElection/:id" element={<ElectionDetailsAD />} />
                       <Route path="showElection/:id/constituency/:cId" element={<ConstituencyDetails />} />
                       <Route path="showElection/:id/constituency/:cId/polling-center/:centerId" element={<AdminPollingCenterDetails />} />
+                      <Route path="closedElection/:id" element={<ClosedElectionResults />} />
+                      <Route path="finalizedElection/:id" element={<FinalizedElection />} />
                       <Route path="pending" element={<PendingApprovals />} />
                     </Route>
                     <Route path="/userslist">

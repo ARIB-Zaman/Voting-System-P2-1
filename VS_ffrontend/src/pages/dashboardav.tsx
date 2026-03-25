@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { ShowButton } from '@/components/refine-ui/buttons/show';
 import {
   Table,
   TableBody,
@@ -77,7 +77,14 @@ const statusConfig: Record<
 
 const ITEMS_PER_PAGE = 10;
 
+const electionPath = (election: Election): string => {
+  if (election.status === 'CLOSED') return `/homeAdmin/closedElection/${election.election_id}`;
+  if (election.status === 'FINALIZED') return `/homeAdmin/finalizedElection/${election.election_id}`;
+  return `/homeAdmin/showElection/${election.election_id}`;
+};
+
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<Election[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -312,14 +319,13 @@ const Dashboard = () => {
 
                       {/* Actions */}
                       <TableCell className="px-6 py-5 text-right">
-                        <ShowButton
-                          resource="election"
-                          recordItemId={election.election_id}
+                        <Button
                           variant="ghost"
                           className="text-primary font-bold hover:text-primary/80 h-auto p-0"
+                          onClick={() => navigate(electionPath(election))}
                         >
                           View Details
-                        </ShowButton>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
