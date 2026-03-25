@@ -14,6 +14,11 @@ router.post("/add-voter", async (req, res) => {
         return res.status(400).json({ error: "NID, Name, and Constituency ID are required." });
     }
 
+    const validTypes = ['NORMAL', 'POSTAL'];
+    if (voter_type && !validTypes.includes(voter_type)) {
+        return res.status(400).json({ error: "Invalid Voter Type. Must be NORMAL or POSTAL." });
+    }
+
     try {
         // Check if NID already exists
         const existing = await pool.query("SELECT nid FROM voter WHERE nid = $1", [nid]);

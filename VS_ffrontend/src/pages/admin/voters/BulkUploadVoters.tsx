@@ -111,7 +111,8 @@ const BulkUploadVoters = () => {
                             <div>
                                 <h3 className="text-lg font-semibold">Choose CSV File</h3>
                                 <p className="text-sm text-muted-foreground mt-1 text-balance">
-                                    CSV must include headers: <code className="text-primary bg-primary/5 px-1 rounded">nid, name, phone, email, voter_type, constituency_id, lat, lng</code>
+                                    CSV must include headers: <code className="text-primary bg-primary/5 px-1 rounded">nid, name, phone, email, voter_type, constituency_id, lat, lng</code><br/>
+                                    <span className="text-xs text-muted-foreground/80">Note: voter_type must be either <code className="font-bold">NORMAL</code> or <code className="font-bold">POSTAL</code></span>
                                 </p>
                             </div>
                             <input 

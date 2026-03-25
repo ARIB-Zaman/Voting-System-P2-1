@@ -22,7 +22,7 @@ const AddVoter = () => {
         name: '',
         phone: '',
         email: '',
-        voter_type: 'General',
+        voter_type: 'NORMAL',
         constituency_id: '',
         lat: '',
         lng: ''
@@ -62,7 +62,7 @@ const AddVoter = () => {
                     name: '',
                     phone: '',
                     email: '',
-                    voter_type: 'General',
+                    voter_type: 'NORMAL',
                     constituency_id: '',
                     lat: '',
                     lng: ''
@@ -115,9 +115,8 @@ const AddVoter = () => {
                                             <SelectValue placeholder="Select type" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="General">General</SelectItem>
-                                            <SelectItem value="Special">Special</SelectItem>
-                                            <SelectItem value="Absentee">Absentee</SelectItem>
+                                            <SelectItem value="NORMAL">NORMAL</SelectItem>
+                                            <SelectItem value="POSTAL">POSTAL</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
