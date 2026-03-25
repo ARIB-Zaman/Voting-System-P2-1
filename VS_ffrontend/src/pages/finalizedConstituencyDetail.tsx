@@ -63,14 +63,14 @@ const formatHour = (iso: string) =>
 
 // Distinct chart colours for up to ~8 candidates
 const PALETTE = [
-  '#6366f1', // Primary purple (matches your --primary)
-  '#a855f7', // Medium purple
-  '#c084fc', // Light purple
-  '#3b82f6', // Blue (matches your --chart-4 in dark mode)
-  '#60a5fa', // Lighter blue
-  '#10b981', // Green (matches your --chart-1)
-  '#34d399', // Lighter green
-  '#a4f65c', // Deeper purple (matches your --accent)
+  'var(--chart-1)', 
+  'var(--chart-2)', 
+  'var(--chart-3)', 
+  'var(--chart-4)', 
+  'var(--chart-5)',
+  '#10b981', 
+  '#34d399', 
+  '#a4f65c', 
 ];
 // ── Component ────────────────────────────────────────────────────────────────
 
