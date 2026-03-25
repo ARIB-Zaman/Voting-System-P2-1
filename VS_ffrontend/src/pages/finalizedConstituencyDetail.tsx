@@ -63,10 +63,15 @@ const formatHour = (iso: string) =>
 
 // Distinct chart colours for up to ~8 candidates
 const PALETTE = [
-  '#6366f1', '#f59e0b', '#10b981', '#ef4444',
-  '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
+  '#6366f1', // Primary purple (matches your --primary)
+  '#a855f7', // Medium purple
+  '#c084fc', // Light purple
+  '#3b82f6', // Blue (matches your --chart-4 in dark mode)
+  '#60a5fa', // Lighter blue
+  '#10b981', // Green (matches your --chart-1)
+  '#34d399', // Lighter green
+  '#a4f65c', // Deeper purple (matches your --accent)
 ];
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 const FinalizedConstituencyDetail: React.FC = () => {
