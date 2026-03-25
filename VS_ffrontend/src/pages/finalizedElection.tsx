@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+// Note: useCallback kept in case future additions need it; fetchData uses it below
 import { useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { Label, Pie, PieChart, Sector } from 'recharts';
+import type { PieSectorShapeProps } from 'recharts/types/polar/Pie';
 import {
   AlertCircle,
   ArrowLeft,
@@ -138,42 +140,48 @@ const FinalizedElection: React.FC = () => {
   }, [partySeats, totalSeats]);
 
   // ── Pie chart data ────────────────────────────────────────────────────────
+  // We use safe index-based keys (p0, p1 …) so ChartStyle can inject
+  // CSS vars like --color-p0, which recharts then resolves via fill.
+  const pieKeys = partySeats.map((_, i) => `p${i}`);
+
   const pieChartData = partySeats.map((p, i) => ({
-    party: p.party_name,
+    key: pieKeys[i],          // used as nameKey
+    party: p.party_name,      // human label
     seats: Number(p.seat_count),
-    fill: PALETTE[i % PALETTE.length],
+    fill: `var(--color-${pieKeys[i]})`,
   }));
 
   const pieConfig = useMemo<ChartConfig>(() => {
     const cfg: ChartConfig = { seats: { label: 'Seats' } };
     partySeats.forEach((p, i) => {
-      cfg[p.party_name] = {
+      cfg[pieKeys[i]] = {
         label: p.party_name,
         color: PALETTE[i % PALETTE.length],
       };
     });
     return cfg;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partySeats]);
 
   const chartId = 'party-seats-pie';
 
-  // Active shape renderer for the interactive pie slice
-  const renderActiveShape = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (props: any) => {
-      const { outerRadius = 0, ...rest } = props;
-      return (
-        <g>
-          <Sector {...rest} outerRadius={outerRadius + 10} />
-          <Sector
-            {...rest}
-            outerRadius={outerRadius + 25}
-            innerRadius={outerRadius + 12}
-          />
-        </g>
-      );
+  const renderPieShape = useCallback(
+    ({ index, outerRadius = 0, ...props }: PieSectorShapeProps) => {
+      if (index === activeIndex) {
+        return (
+          <g>
+            <Sector {...props} outerRadius={outerRadius + 10} />
+            <Sector
+              {...props}
+              outerRadius={outerRadius + 25}
+              innerRadius={outerRadius + 12}
+            />
+          </g>
+        );
+      }
+      return <Sector {...props} outerRadius={outerRadius} />;
     },
-    [],
+    [activeIndex]
   );
 
   // ── Loading / error states ────────────────────────────────────────────────
@@ -335,9 +343,9 @@ const FinalizedElection: React.FC = () => {
             </Badge>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center gap-0 md:gap-6 p-6">
-            {/* Pie Chart */}
-            <div className="w-full md:w-auto flex-shrink-0">
+          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 p-6">
+            {/* Pie Chart Wrapper - Requires explicit min-width so Recharts ResponsiveContainer doesn't collapse to 0x0 */}
+            <div className="w-[260px] md:w-[300px] flex-shrink-0 mx-auto md:mx-0">
               
               <ChartStyle id={chartId} config={pieConfig} />
               <ChartContainer
@@ -351,23 +359,28 @@ const FinalizedElection: React.FC = () => {
                     content={
                       <ChartTooltipContent
                         hideLabel
-                        formatter={(value, name) => (
-                          <span className="font-bold">
-                            {name}: {Number(value)} seat{Number(value) !== 1 ? 's' : ''}
-                          </span>
-                        )}
+                        formatter={(value, name) => {
+                          // name is the safe key (p0, p1…); look up human label
+                          const entry = pieChartData.find((d) => d.key === name);
+                          return (
+                            <span className="font-bold">
+                              {entry?.party ?? name}:{' '}
+                              {Number(value)} seat{Number(value) !== 1 ? 's' : ''}
+                            </span>
+                          );
+                        }}
                       />
                     }
                   />
                   <Pie
                     data={pieChartData}
                     dataKey="seats"
-                    nameKey="party"
-                    innerRadius={70}
-                    strokeWidth={4}
-                    activeIndex={activeIndex}
-                    activeShape={renderActiveShape}
-                    onClick={(_data, index) => setActiveIndex(index)}
+                    nameKey="key"
+                    innerRadius={60}
+                    strokeWidth={5}
+                    shape={renderPieShape}
+                    onClick={(_data, idx) => setActiveIndex(idx)}
+                    style={{ cursor: 'pointer' }}
                   >
                     <Label
                       content={({ viewBox }) => {

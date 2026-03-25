@@ -211,6 +211,22 @@ router.get("/:electionId/constituency/:constituencyId/results", async (req, res)
 });
 
 
+// GET /:id/party-seats — seat count per party for a finalized election
+// Mirrors the DB function get_party_seats(election_id)
+router.get("/:id/party-seats", async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT party_name, seat_count
+             FROM get_party_seats($1)`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // PUT /:id/finalize — set election status to FINALIZED
 router.put("/:id/finalize", async (req, res) => {
     const { id } = req.params;
