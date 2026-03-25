@@ -211,7 +211,61 @@ router.get("/:electionId/constituency/:constituencyId/results", async (req, res)
 });
 
 
+// GET /:id/constituency-winners — all constituencies with their winner (if any)
+router.get("/:id/constituency-winners", async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT
+               coe.id                  AS coe_id,
+               coe.constituency_id,
+               c.name,
+               c.region,
+               -- winner: candidate with most votes in this coe
+               (
+                 SELECT ca.name
+                 FROM candidate ca
+                 LEFT JOIN voting_log vl
+                   ON vl.candidate_id = ca.candidate_id
+                   AND vl.constituency_of_election_id = coe.id
+                 WHERE ca.constituency_of_election_id = coe.id
+                 GROUP BY ca.candidate_id, ca.name, ca.party
+                 ORDER BY COUNT(vl.candidate_id) DESC
+                 LIMIT 1
+               ) AS winner_name,
+               (
+                 SELECT ca.party
+                 FROM candidate ca
+                 LEFT JOIN voting_log vl
+                   ON vl.candidate_id = ca.candidate_id
+                   AND vl.constituency_of_election_id = coe.id
+                 WHERE ca.constituency_of_election_id = coe.id
+                 GROUP BY ca.candidate_id, ca.name, ca.party
+                 ORDER BY COUNT(vl.candidate_id) DESC
+                 LIMIT 1
+               ) AS winner_party,
+               (
+                 SELECT COUNT(vl.candidate_id)
+                 FROM candidate ca
+                 LEFT JOIN voting_log vl
+                   ON vl.candidate_id = ca.candidate_id
+                   AND vl.constituency_of_election_id = coe.id
+                 WHERE ca.constituency_of_election_id = coe.id
+               ) AS total_votes
+             FROM constituency_of_election coe
+             JOIN constituency c ON c.id = coe.constituency_id
+             WHERE coe.election_id = $1
+             ORDER BY c.name`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /:id/party-seats — seat count per party for a finalized election
+
 // Mirrors the DB function get_party_seats(election_id)
 router.get("/:id/party-seats", async (req, res) => {
     const { id } = req.params;

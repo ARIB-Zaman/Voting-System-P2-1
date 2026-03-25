@@ -43,12 +43,14 @@ interface Election {
   status: string;
 }
 
-interface Constituency {
+interface ConstituencyWinner {
   coe_id: number;
   constituency_id: number;
   name: string;
   region: string;
-  ro_name: string | null;
+  winner_name: string | null;
+  winner_party: string | null;
+  total_votes: number;
 }
 
 interface PartySeat {
@@ -88,7 +90,7 @@ const FinalizedElection: React.FC = () => {
   const navigate = useNavigate();
 
   const [election, setElection] = useState<Election | null>(null);
-  const [constituencies, setConstituencies] = useState<Constituency[]>([]);
+  const [constituencies, setConstituencies] = useState<ConstituencyWinner[]>([]);
   const [partySeats, setPartySeats] = useState<PartySeat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +104,7 @@ const FinalizedElection: React.FC = () => {
     try {
       const [elecRes, coeRes, seatsRes] = await Promise.all([
         fetch(`${API}/election/${id}`),
-        fetch(`${API}/constituency_of_election/election/${id}`),
+        fetch(`${API}/election/${id}/constituency-winners`),
         fetch(`${API}/election/${id}/party-seats`),
       ]);
       if (!elecRes.ok) throw new Error('Failed to fetch election');
@@ -461,7 +463,7 @@ const FinalizedElection: React.FC = () => {
         </div>
       )}
 
-      {/* ── Constituencies Table ─────────────────────────────────────────── */}
+      {/* ── Constituencies ── */}
       <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b bg-muted/30 flex items-center gap-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
@@ -472,38 +474,37 @@ const FinalizedElection: React.FC = () => {
           </Badge>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
-                Name
-              </TableHead>
-              <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
-                Region
-              </TableHead>
-              <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
-                Returning Officer
-              </TableHead>
-              <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">
-                Actions
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {constituencies.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2">
-                    <MapPin className="h-8 w-8 opacity-40" />
-                    <p className="font-medium">No constituencies found</p>
-                  </div>
-                </TableCell>
+        {constituencies.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+            <MapPin className="h-8 w-8 opacity-40" />
+            <p className="font-medium text-sm">No constituencies found</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
+                  Constituency
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
+                  Region
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">
+                  Elected Representative
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">
+                  Votes
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">
+                  Actions
+                </TableHead>
               </TableRow>
-            ) : (
-              constituencies.map((c) => (
+            </TableHeader>
+            <TableBody>
+              {constituencies.map((c) => (
                 <TableRow key={c.coe_id} className="hover:bg-muted/40 transition-colors">
                   <TableCell className="px-6 py-4">
-                    <p className="text-sm font-medium">{c.name}</p>
+                    <p className="text-sm font-bold">{c.name}</p>
                   </TableCell>
                   <TableCell className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -512,13 +513,31 @@ const FinalizedElection: React.FC = () => {
                     </div>
                   </TableCell>
                   <TableCell className="px-6 py-4">
-                    {c.ro_name ? (
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                        {c.ro_name}
+                    {c.winner_name ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                          <Medal className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold truncate text-foreground">{c.winner_name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate font-bold uppercase tracking-wider">{c.winner_party}</p>
+                        </div>
                       </div>
                     ) : (
-                      <span className="text-sm text-muted-foreground italic">Unassigned</span>
+                      <span className="text-sm text-muted-foreground italic flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5" />
+                        No data
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-right">
+                    {c.winner_name ? (
+                      <div className="flex flex-col items-end">
+                        <p className="font-bold text-sm">{Number(c.total_votes).toLocaleString()}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">total cast</p>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-right">
@@ -535,10 +554,10 @@ const FinalizedElection: React.FC = () => {
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   );
