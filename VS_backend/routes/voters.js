@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const crypto = require("crypto");
 
 /**
  * POST /api/voters/add-voter
@@ -27,11 +28,12 @@ router.post("/add-voter", async (req, res) => {
         }
 
         // Insert new voter
+        const fingerprint_hash = crypto.randomBytes(32).toString('hex');
         const result = await pool.query(
-            `INSERT INTO voter (nid, name, phone, email, voter_type, constituency_id, lat, lng)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `INSERT INTO voter (nid, name, phone, email, voter_type, constituency_id, lat, lng, fingerprint_hash)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING *`,
-            [nid, name, phone, email, voter_type, constituency_id, lat, lng]
+            [nid, name, phone, email, voter_type, constituency_id, lat, lng, fingerprint_hash]
         );
 
         res.status(201).json({
@@ -84,10 +86,11 @@ router.post("/bulk-upload-voters", async (req, res) => {
                 }
 
                 // Insert
+                const fingerprint_hash = crypto.randomBytes(32).toString('hex');
                 await client.query(
-                    `INSERT INTO voter (nid, name, phone, email, voter_type, constituency_id, lat, lng)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                    [nid, name, phone, email, voter_type, constituency_id, lat, lng]
+                    `INSERT INTO voter (nid, name, phone, email, voter_type, constituency_id, lat, lng, fingerprint_hash)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                    [nid, name, phone, email, voter_type, constituency_id, lat, lng, fingerprint_hash]
                 );
                 added++;
             } catch (innerErr) {
