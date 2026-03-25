@@ -14,7 +14,7 @@ import { ThemeProvider } from './components/refine-ui/theme/theme-provider';
 import { dataProvider } from './providers/data';
 import { authProvider } from './providers/auth-provider';
 import Dashboard from './pages/dashboardav';
-import { ClipboardCheck, Home, Shield, Users, Building2 } from 'lucide-react';
+import { ClipboardCheck, Home, Shield, Users, Building2, Earth } from 'lucide-react';
 import { Layout } from './components/refine-ui/layout/layout';
 import CreateElection from './pages/createElection';
 import ElectionDetailsAD from './pages/electionDetailsAD';
@@ -32,6 +32,9 @@ import ManageVoters from './pages/admin/voters/ManageVoters';
 import AddPollingCenter from './pages/admin/pollingCenters/AddPollingCenter';
 import ManagePollingCenters from './pages/admin/pollingCenters/ManagePollingCenters';
 import BulkUploadPollingCenters from './pages/admin/pollingCenters/BulkUploadPollingCenters';
+import AddConstituency from './pages/admin/constituencies/AddConstituency';
+import BulkUploadConstituencies from './pages/admin/constituencies/BulkUploadConstituencies';
+import ManageConstituencies from './pages/admin/constituencies/ManageConstituencies';
 import ElectionEntry from './pages/user/election/ElectionEntry';
 import KioskLayout from './pages/kiosk/KioskLayout';
 import KioskElections from './pages/kiosk/KioskElections';
@@ -153,6 +156,25 @@ function App() {
                   meta: { label: 'Manage Voters', parent: 'voters', role: 'ADMIN' },
                 },
                 {
+                  name: 'constituencies',
+                  meta: { label: 'Constituencies', icon: <Earth />, role: 'ADMIN' },
+                },
+                {
+                  name: 'cons-add',
+                  list: '/homeAdmin/constituencies/add',
+                  meta: { label: 'Add Constituency', parent: 'constituencies', role: 'ADMIN' },
+                },
+                {
+                  name: 'cons-bulk',
+                  list: '/homeAdmin/constituencies/bulk',
+                  meta: { label: 'Bulk Upload', parent: 'constituencies', role: 'ADMIN' },
+                },
+                {
+                  name: 'cons-manage',
+                  list: '/homeAdmin/constituencies/manage',
+                  meta: { label: 'Manage', parent: 'constituencies', role: 'ADMIN' },
+                },
+                {
                   name: 'polling-centers',
                   meta: { label: 'Polling Centers', icon: <Building2 />, role: 'ADMIN' },
                 },
@@ -218,6 +240,11 @@ function App() {
                         <Route path="add" element={<AddVoter />} />
                         <Route path="bulk" element={<BulkUploadVoters />} />
                         <Route path="manage" element={<ManageVoters />} />
+                      </Route>
+                      <Route path="constituencies">
+                        <Route path="add" element={<AddConstituency />} />
+                        <Route path="bulk" element={<BulkUploadConstituencies />} />
+                        <Route path="manage" element={<ManageConstituencies />} />
                       </Route>
                       <Route path="polling-centers">
                         <Route path="add" element={<AddPollingCenter />} />
