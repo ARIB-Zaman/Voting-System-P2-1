@@ -26,6 +26,8 @@ import PendingApprovals from './pages/admin/pendingApprovals';
 import ConstituencyDetails from './pages/constituencyDetails';
 import AdminPollingCenterDetails from './pages/admin/adminPollingCenterDetails';
 import UserDashboard from './pages/user/userDashboard';
+import AddVoter from './pages/admin/voters/AddVoter';
+import BulkUploadVoters from './pages/admin/voters/BulkUploadVoters';
 import ElectionEntry from './pages/user/election/ElectionEntry';
 import KioskLayout from './pages/kiosk/KioskLayout';
 import KioskElections from './pages/kiosk/KioskElections';
@@ -127,6 +129,20 @@ function App() {
                   list: '/homeAdmin/pending',
                   meta: { label: 'Pending Approvals', icon: <ClipboardCheck />, role: 'ADMIN' },
                 },
+                {
+                  name: 'voters',
+                  meta: { label: 'Voters', icon: <Users />, role: 'ADMIN' },
+                },
+                {
+                  name: 'voter-add',
+                  list: '/homeAdmin/voters/add',
+                  meta: { label: 'Add Voter', parent: 'voters', role: 'ADMIN' },
+                },
+                {
+                  name: 'voter-bulk',
+                  list: '/homeAdmin/voters/bulk',
+                  meta: { label: 'Bulk Upload', parent: 'voters', role: 'ADMIN' },
+                },
                 // ── USER resources ────────────────────────────────────────────
                 {
                   name: 'user-dashboard',
@@ -170,6 +186,10 @@ function App() {
                       <Route path="showElection/:id/constituency/:cId" element={<ConstituencyDetails />} />
                       <Route path="showElection/:id/constituency/:cId/polling-center/:centerId" element={<AdminPollingCenterDetails />} />
                       <Route path="pending" element={<PendingApprovals />} />
+                      <Route path="voters">
+                        <Route path="add" element={<AddVoter />} />
+                        <Route path="bulk" element={<BulkUploadVoters />} />
+                      </Route>
                     </Route>
                     <Route path="/userslist">
                       <Route index element={<UserList />} />
