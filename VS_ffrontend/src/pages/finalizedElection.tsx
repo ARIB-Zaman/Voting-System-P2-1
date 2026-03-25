@@ -165,23 +165,17 @@ const FinalizedElection: React.FC = () => {
 
   const chartId = 'party-seats-pie';
 
-  const renderPieShape = useCallback(
-    ({ index, outerRadius = 0, ...props }: PieSectorShapeProps) => {
-      if (index === activeIndex) {
-        return (
-          <g>
-            <Sector {...props} outerRadius={outerRadius + 10} />
-            <Sector
-              {...props}
-              outerRadius={outerRadius + 25}
-              innerRadius={outerRadius + 12}
-            />
-          </g>
-        );
-      }
-      return <Sector {...props} outerRadius={outerRadius} />;
+  const renderActiveShape = useCallback(
+    ({ outerRadius = 0, innerRadius = 0, ...props }: any) => {
+      return (
+        <Sector 
+          {...props} 
+          outerRadius={(outerRadius as number) + 15} 
+          innerRadius={innerRadius} 
+        />
+      );
     },
-    [activeIndex]
+    []
   );
 
   // ── Loading / error states ────────────────────────────────────────────────
@@ -378,7 +372,9 @@ const FinalizedElection: React.FC = () => {
                     nameKey="key"
                     innerRadius={60}
                     strokeWidth={5}
-                    shape={renderPieShape}
+                    // @ts-ignore Recharts type inference limitation
+                    activeIndex={activeIndex}
+                    activeShape={renderActiveShape}
                     onClick={(_data, idx) => setActiveIndex(idx)}
                     style={{ cursor: 'pointer' }}
                   >
