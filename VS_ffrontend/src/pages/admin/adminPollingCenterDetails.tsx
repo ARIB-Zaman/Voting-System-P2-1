@@ -266,7 +266,7 @@ const AdminPollingCenterDetails: React.FC = () => {
 
   const fetchAssignableUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/users/assignable`);
+      const res = await fetch(`${API}/users/assignable-for-election?election_id=${id}`);
       if (!res.ok) return;
       setAssignableUsers(await res.json());
     } catch {
