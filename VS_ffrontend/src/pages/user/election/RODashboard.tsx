@@ -267,10 +267,10 @@ const RODashboard: React.FC<RODashboardProps> = ({
 
   const fetchAssignableUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/users/assignable`);
+      const res = await fetch(`${API}/users/assignable-for-election?election_id=${electionId}`);
       if (res.ok) setAssignableUsers(await res.json());
     } catch { /* non-critical */ }
-  }, []);
+  }, [electionId]);
 
   const fetchTotalVoters = useCallback(async () => {
     try {

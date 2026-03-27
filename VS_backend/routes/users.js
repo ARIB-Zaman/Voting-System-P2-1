@@ -208,5 +208,35 @@ router.get("/assignable", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/users/assignable-for-election?election_id=<id>
+ * Get approved USER-role users NOT already assigned any role in the given election.
+ * Used for both RO (admin) and PRO (RO dashboard) pickers.
+ */
+router.get("/assignable-for-election", async (req, res) => {
+  const { election_id } = req.query;
+  if (!election_id) {
+    return res.status(400).json({ error: "election_id is required" });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.name
+       FROM public."user" u
+       WHERE u.role = 'USER'
+         AND u.approved = true
+         AND u.id NOT IN (
+           SELECT rm.user_id
+           FROM role_map rm
+           WHERE rm.election_id = $1
+         )
+       ORDER BY u.name`,
+      [election_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 
