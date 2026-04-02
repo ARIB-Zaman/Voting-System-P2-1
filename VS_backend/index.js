@@ -18,7 +18,63 @@ app.use(
 
 // ── BetterAuth handler ────────────────────────────────────────────────────────
 // Must come BEFORE express.json() — BetterAuth parses its own body
-app.all("/api/auth/{*splat}", toNodeHandler(auth.handler));
+const pool = require('./db');
+const { Readable } = require('stream');
+const betterAuthHandler = toNodeHandler(auth.handler);
+
+app.all("/api/auth/{*splat}", async (req, res, next) => {
+    if (req.method === "POST" && req.path === "/api/auth/sign-in/email") {
+        const buffers = [];
+        for await (const chunk of req) {
+            buffers.push(chunk);
+        }
+        const bodyBuffer = Buffer.concat(buffers);
+        const bodyString = bodyBuffer.toString('utf-8');
+        
+        let email = null;
+        try {
+            const json = JSON.parse(bodyString);
+            email = json.email;
+        } catch(e) {}
+
+        const ip_address = req.ip || req.connection.remoteAddress;
+
+        // Recreate the stream for better-auth
+        const mockReq = Readable.from(bodyBuffer);
+        Object.assign(mockReq, {
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+            socket: req.socket,
+            connection: req.connection
+        });
+
+        res.on("finish", async () => {
+            try {
+                let user_id = null;
+                let role = null;
+                if (email) {
+                    const u = await pool.query('SELECT id, role FROM "user" WHERE email = $1', [email]);
+                    if (u.rows.length > 0) {
+                        user_id = u.rows[0].id;
+                        role = u.rows[0].role;
+                    }
+                }
+                const success_flag = res.statusCode >= 200 && res.statusCode < 300;
+                await pool.query(
+                    `INSERT INTO login_log (ip_address, user_id, role, success_flag) VALUES ($1, $2, $3, $4)`,
+                    [ip_address, user_id, role, success_flag]
+                );
+            } catch (err) {
+                console.error("Login tracking error:", err);
+            }
+        });
+
+        return betterAuthHandler(mockReq, res);
+    }
+
+    return betterAuthHandler(req, res);
+});
 
 // ── Body parser (for all other routes) ───────────────────────────────────────
 app.use(express.json());

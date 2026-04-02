@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { createAuditLog } = require('../src/utils/logger');
 
 // All admin routes require authentication + ADMIN role
 router.use(requireAuth, requireRole('ADMIN'));
@@ -38,6 +39,7 @@ router.post('/approve/:userId', async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found.' });
         }
+        await createAuditLog(req.user.id, 'APPROVE', 'user', userId, { email: result.rows[0].email });
         res.json({ message: 'User approved.', user: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -61,6 +63,7 @@ router.post('/reject/:userId', async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found or already approved.' });
         }
+        await createAuditLog(req.user.id, 'DELETE', 'user', userId, { email: result.rows[0].email });
         res.json({ message: 'User rejected and removed.' });
     } catch (err) {
         res.status(500).json({ error: err.message });
