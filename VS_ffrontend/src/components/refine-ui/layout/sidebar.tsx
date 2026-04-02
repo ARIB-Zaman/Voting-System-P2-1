@@ -29,6 +29,7 @@ import {
 } from "@refinedev/core";
 import { ChevronRight, ListIcon, Origami } from "lucide-react";
 import React from "react";
+import { useLocation } from "react-router";
 
 interface Identity {
   role?: string;
@@ -44,9 +45,17 @@ export function Sidebar() {
   const { menuItems, selectedKey } = useMenu();
   const { data: identity } = useGetIdentity<Identity>();
   const userRole = identity?.role ?? 'ADMIN';
+  const location = useLocation();
+
+  const isOfficerMode = location.pathname.includes('/homeUSER/election');
 
   // Filter menu items so each role only sees their own resources
   const filteredItems = menuItems.filter((item: TreeMenuItem) => {
+    // Hide items if in officer mode and flag is set
+    if (isOfficerMode && item.meta?.hideInOfficerMode) {
+      return false;
+    }
+
     const itemRole = item.meta?.role;
     if (!itemRole) return true; // no role restriction → show to everyone
     return itemRole === userRole;
@@ -229,6 +238,7 @@ function SidebarItemLink({ item, selectedKey }: MenuItemProps) {
 
 function SidebarHeader() {
   const { data: identity } = useGetIdentity<Identity>();
+  const Link = useLink();
   const roleLabel = identity?.role ? (ROLE_LABELS[identity.role] ?? 'Welec') : 'Welec';
   const title = { icon: <Origami />, text: roleLabel };
   const { open, isMobile } = useShadcnSidebar();
@@ -246,7 +256,8 @@ function SidebarHeader() {
         "overflow-hidden"
       )}
     >
-      <div
+      <Link
+        to={identity?.role === 'USER' ? '/homeUSER' : '/homeAdmin'}
         className={cn(
           "whitespace-nowrap",
           "flex",
@@ -255,15 +266,16 @@ function SidebarHeader() {
           "items-center",
           "justify-start",
           "gap-2",
-          "transition-discrete",
+          "transition-all",
           "duration-200",
+          "hover:opacity-80",
           {
             "pl-3": !open,
             "pl-5": open,
           }
         )}
       >
-        <div>{title.icon}</div>
+        <div className="text-primary">{title.icon}</div>
         <h2
           className={cn(
             "text-l",
@@ -278,7 +290,7 @@ function SidebarHeader() {
         >
           {title.text}
         </h2>
-      </div>
+      </Link>
 
       <ShadcnSidebarTrigger
         className={cn("text-muted-foreground", "mr-1.5", {

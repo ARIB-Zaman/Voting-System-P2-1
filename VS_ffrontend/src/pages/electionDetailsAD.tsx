@@ -318,6 +318,7 @@ const ElectionDetailsAD: React.FC = () => {
         election_id: id,
         constituency_id: constituencyId,
         q: search,
+        not_in_election: 'true',
         limit: '200',
       });
       const res = await fetch(`${API}/voter-allocation/search?${params}`);

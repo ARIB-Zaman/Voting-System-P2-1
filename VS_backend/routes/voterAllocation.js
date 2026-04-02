@@ -38,26 +38,45 @@ router.get("/center/:centerId/election/:electionId", async (req, res) => {
  * "Unallocated" = not yet in voter_of_election for this election.
  */
 router.get("/search", async (req, res) => {
-  const { q = "", election_id, constituency_id, limit = "50" } = req.query;
+  const { q = "", election_id, constituency_id, not_in_election, limit = "50" } = req.query;
   if (!election_id || !constituency_id) {
     return res.status(400).json({ error: "election_id and constituency_id are required" });
   }
   try {
     const search = `%${q}%`;
-    // Show voters who are in the election master list (voter_of_election)
-    // but have NOT yet been assigned to any polling center (center_id IS NULL).
-    const result = await pool.query(
-      `SELECT v.nid, v.name, v.phone, v.voter_type
-       FROM voter v
-       JOIN voter_of_election voe ON voe.nid = v.nid
-       WHERE v.constituency_id = $1
-         AND voe.election_id = $2::integer
-         AND voe.center_id IS NULL
-         AND (v.name ILIKE $3 OR v.phone ILIKE $3 OR v.nid::text ILIKE $3)
-       ORDER BY v.name ASC
-       LIMIT $4`,
-      [constituency_id, election_id, search, parseInt(limit)]
-    );
+    let query;
+    let params;
+
+    if (not_in_election === 'true') {
+      // MODE 1: Show voters in master list who are NOT yet in this election
+      query = `
+        SELECT v.nid, v.name, v.phone, v.voter_type
+        FROM voter v
+        WHERE v.constituency_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM voter_of_election voe 
+            WHERE voe.nid = v.nid AND voe.election_id = $2::integer
+          )
+          AND (v.name ILIKE $3 OR v.phone ILIKE $3 OR v.nid::text ILIKE $3)
+        ORDER BY v.name ASC
+        LIMIT $4`;
+    } else {
+      // MODE 2: Show voters already in the election master list (voter_of_election)
+      // but NOT yet assigned to any polling center (center_id IS NULL).
+      query = `
+        SELECT v.nid, v.name, v.phone, v.voter_type
+        FROM voter v
+        JOIN voter_of_election voe ON voe.nid = v.nid
+        WHERE v.constituency_id = $1
+          AND voe.election_id = $2::integer
+          AND voe.center_id IS NULL
+          AND (v.name ILIKE $3 OR v.phone ILIKE $3 OR v.nid::text ILIKE $3)
+        ORDER BY v.name ASC
+        LIMIT $4`;
+    }
+
+    params = [constituency_id, election_id, search, parseInt(limit)];
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -117,9 +136,9 @@ router.post("/auto", async (req, res) => {
     await client.query("BEGIN");
 
     // Cast all params explicitly — pg sends JS values as text by default
-    const centerIdInt  = parseInt(center_id);
+    const centerIdInt = parseInt(center_id);
     const electionIdInt = parseInt(election_id);
-    const countInt     = parseInt(count);
+    const countInt = parseInt(count);
 
     // Call the DB function to get closest unallocated voters
     const votersResult = await client.query(
@@ -304,7 +323,7 @@ router.post("/:voeId/generate-otp", async (req, res) => {
     );
     const otp = result.rows[0]?.otp;
     if (otp === null || otp === undefined) {
-      return res.status(404).json({ error: "Voter allocation not found or OTP generation failed" });
+      return res.status(404).json({ error: "OTP generation request failed" });
     }
     res.json({ otp });
   } catch (err) {
@@ -441,7 +460,7 @@ router.post("/add", async (req, res) => {
     // 🔥 Get a valid ADMIN user ID for assigned_by
     const adminResult = await pool.query('SELECT id FROM "user" WHERE role = \'ADMIN\' LIMIT 1');
     if (adminResult.rows.length === 0) {
-       return res.status(500).json({ error: "No admin user found to perform assignment" });
+      return res.status(500).json({ error: "No admin user found to perform assignment" });
     }
     const adminId = adminResult.rows[0].id;
 

@@ -238,7 +238,9 @@ const RODashboard: React.FC<RODashboardProps> = ({
     // coeId gives us the row, from which we can get constituency_id via a small redirect:
     // We'll use /constituency_of_election/election/:eId and filter by coe_id.
     try {
-      const res = await fetch(`${API}/constituency_of_election/election/${electionId}`);
+      const res = await fetch(`${API}/constituency_of_election/election/${electionId}`, {
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error('Failed to fetch');
       const all = await res.json();
       const coe = all.find((r: { id?: number; coe_id?: number }) =>
@@ -249,13 +251,16 @@ const RODashboard: React.FC<RODashboardProps> = ({
       setConstituencyId(constituencyId);
 
       const centersRes = await fetch(
-        `${API}/polling_center_of_election/election/${electionId}/constituency/${constituencyId}`
+        `${API}/polling_center_of_election/election/${electionId}/constituency/${constituencyId}`,
+        { credentials: 'include' }
       );
       if (!centersRes.ok) throw new Error('Failed to fetch centers');
       const centers: PollingCenterRow[] = await centersRes.json();
 
       // Fetch per-center voter counts
-      const countRes = await fetch(`${API}/candidate/center-voter-counts/${coeId}`);
+      const countRes = await fetch(`${API}/candidate/center-voter-counts/${coeId}`, {
+        credentials: 'include',
+      });
       const countData: { poe_id: number; voter_count: number }[] = countRes.ok ? await countRes.json() : [];
       const countMap = new Map(countData.map((c) => [c.poe_id, c.voter_count]));
 
@@ -267,14 +272,18 @@ const RODashboard: React.FC<RODashboardProps> = ({
 
   const fetchAssignableUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/users/assignable-for-election?election_id=${electionId}`);
+      const res = await fetch(`${API}/users/assignable-for-election?election_id=${electionId}`, {
+        credentials: 'include',
+      });
       if (res.ok) setAssignableUsers(await res.json());
     } catch { /* non-critical */ }
   }, [electionId]);
 
   const fetchTotalVoters = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/candidate/voter-count/${coeId}`);
+      const res = await fetch(`${API}/candidate/voter-count/${coeId}`, {
+        credentials: 'include',
+      });
       if (res.ok) {
         const data = await res.json();
         setTotalVoters(data.total_voters ?? 0);
@@ -285,7 +294,9 @@ const RODashboard: React.FC<RODashboardProps> = ({
   const fetchCandidates = useCallback(async () => {
     setCandidatesLoading(true);
     try {
-      const res = await fetch(`${API}/candidate/coe/${coeId}`);
+      const res = await fetch(`${API}/candidate/coe/${coeId}`, {
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error('Failed to fetch candidates');
       setCandidates(await res.json());
     } catch {
@@ -298,7 +309,9 @@ const RODashboard: React.FC<RODashboardProps> = ({
   const fetchUnassignedCenters = useCallback(async () => {
     // Get constituency_id first
     try {
-      const res = await fetch(`${API}/constituency_of_election/election/${electionId}`);
+      const res = await fetch(`${API}/constituency_of_election/election/${electionId}`, {
+        credentials: 'include',
+      });
       if (!res.ok) return;
       const all = await res.json();
       const coe = all.find((r: { id?: number; coe_id?: number }) =>
@@ -306,7 +319,9 @@ const RODashboard: React.FC<RODashboardProps> = ({
       );
       if (!coe) return;
       const constituencyId = coe.constituency_id;
-      const ucRes = await fetch(`${API}/constituency/${constituencyId}/polling_centers/unassigned/${electionId}`);
+      const ucRes = await fetch(`${API}/constituency/${constituencyId}/polling_centers/unassigned/${electionId}`, {
+        credentials: 'include',
+      });
       if (ucRes.ok) setUnassignedCenters(await ucRes.json());
     } catch { /* non-critical */ }
   }, [electionId, coeId]);
@@ -358,6 +373,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
       const res = await fetch(`${API}/polling_center_of_election`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ election_id: electionId, polling_center_ids: Array.from(selectedCenterIds) }),
       });
       if (!res.ok) throw new Error();
@@ -378,6 +394,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
       const res = await fetch(`${API}/polling_center_of_election/${editingPoeId}/pro`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ pro_id: editProId }),
       });
       if (!res.ok) throw new Error();
@@ -395,7 +412,10 @@ const RODashboard: React.FC<RODashboardProps> = ({
   const deletePollingCenter = async (poeId: number) => {
     setDeletingPoeId(poeId);
     try {
-      const res = await fetch(`${API}/polling_center_of_election/${poeId}`, { method: 'DELETE' });
+      const res = await fetch(`${API}/polling_center_of_election/${poeId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error();
       toast.success('Polling center removed');
       await fetchPollingCenters();
@@ -418,6 +438,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
       const res = await fetch(`${API}/candidate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name: candName.trim(), party: candParty.trim(), constituency_of_election_id: coeId }),
       });
       if (!res.ok) throw new Error();
@@ -437,7 +458,10 @@ const RODashboard: React.FC<RODashboardProps> = ({
   const deleteCandidate = async (id: number) => {
     setDeletingCandId(id);
     try {
-      const res = await fetch(`${API}/candidate/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API}/candidate/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error();
       setCandidates((prev) => prev.filter((c) => c.candidate_id !== id));
       toast.success('Candidate removed');
