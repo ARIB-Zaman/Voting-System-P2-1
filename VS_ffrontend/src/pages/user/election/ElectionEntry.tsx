@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { useGetIdentity } from '@refinedev/core';
+import { apiFetch } from '@/lib/auth-client';
 import { Spinner } from '@/components/ui/spinner';
 import { AlertCircle } from 'lucide-react';
 import RODashboard from './RODashboard';
@@ -40,9 +41,7 @@ const ElectionEntry: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!identity?.id) return;
-
-    fetch(`http://localhost:3001/api/users/my-elections?userId=${identity.id}`)
+    apiFetch('/api/users/my-elections')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch assignments');
         return res.json() as Promise<ElectionAssignment[]>;
@@ -62,7 +61,7 @@ const ElectionEntry: React.FC = () => {
         setError(err.message);
         setLoading(false);
       });
-  }, [identity?.id, id]);
+  }, [id]);
 
   if (loading || !identity) {
     return (

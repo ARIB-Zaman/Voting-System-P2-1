@@ -20,7 +20,7 @@ router.get("/election/:electionId/constituency/:constituencyId", async (req, res
        JOIN polling_center pc ON pc.id = poe.polling_center_id
        LEFT JOIN role_map rm
          ON rm.relation_id = poe.id AND rm.role = 'PRO'
-       LEFT JOIN public."user" u ON u.id = rm.user_id
+       LEFT JOIN users u ON u.id = rm.user_id
        WHERE poe.election_id = $1
          AND pc.constituency_id = $2
        ORDER BY pc.name`,
@@ -150,7 +150,7 @@ router.put("/:poeId/pro", async (req, res) => {
        JOIN polling_center pc ON pc.id = poe.polling_center_id
        LEFT JOIN role_map rm
          ON rm.relation_id = poe.id AND rm.role = 'PRO'
-       LEFT JOIN public."user" u ON u.id = rm.user_id
+       LEFT JOIN users u ON u.id = rm.user_id
        WHERE poe.id = $1`,
       [poeId]
     );

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
+import { apiFetch } from '@/lib/auth-client';
 import { useNavigate } from 'react-router';
 import {
   CalendarCheck2,
@@ -75,15 +76,14 @@ const UserDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!identity?.id) return;
-    fetch(`http://localhost:3001/api/users/my-elections?userId=${identity.id}`)
+    apiFetch('/api/users/my-elections')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch elections');
         return res.json() as Promise<Assignment[]>;
       })
       .then(setData)
       .catch((err) => setError(err.message));
-  }, [identity?.id]);
+  }, []);
 
   const { live, planned } = useMemo(() => {
     if (!data) return { live: [], planned: [] };

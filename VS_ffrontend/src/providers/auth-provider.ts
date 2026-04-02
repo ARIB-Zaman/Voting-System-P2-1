@@ -1,55 +1,49 @@
 import type { AuthProvider } from '@refinedev/core';
-import { authClient } from '@/lib/auth-client';
+import { apiFetch } from '@/lib/auth-client';
 
-type SessionUser = {
-    id: string;
+const API = 'http://localhost:3001';
+
+type MeUser = {
+    id: number;
     name: string;
     email: string;
-    image?: string;
-    role?: string;
-    approved?: boolean;
+    role: string;
+    approved: boolean;
 };
 
 /**
- * Refine AuthProvider backed by BetterAuth.
- * Role-based redirects are handled in App.tsx via <Authenticated>.
+ * Custom Refine AuthProvider backed by our own JWT implementation.
+ * The JWT lives in an httpOnly cookie — we never touch it directly.
+ * apiFetch() always includes credentials: 'include' so the cookie is sent.
  */
 export const authProvider: AuthProvider = {
     login: async ({ email, password }) => {
         try {
-            const res = await authClient.signIn.email({ email, password });
+            const res = await apiFetch('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ email, password }),
+            });
 
-            if (res.error) {
-                return {
-                    success: false,
-                    error: { name: 'Login failed', message: res.error.message ?? 'Invalid credentials' },
-                };
-            }
+            const data = await res.json();
 
-            // Check approval status
-            const session = await authClient.getSession();
-            const user = session?.data?.user as SessionUser | undefined;
-
-            if (user && user.approved === false) {
-                // Not approved — sign them out immediately
-                await authClient.signOut();
+            if (!res.ok) {
                 return {
                     success: false,
                     error: {
-                        name: 'Account pending',
-                        message: 'Your account is pending admin approval. Please wait for an administrator to approve your access.',
+                        name: 'Login failed',
+                        message: data?.error ?? 'Invalid credentials',
                     },
                 };
             }
 
-            const role = user?.role ?? 'ADMIN';
+            const role: string = data?.user?.role ?? 'USER';
 
             const homeMap: Record<string, string> = {
                 ADMIN: '/homeAdmin',
                 USER: '/homeUSER',
             };
 
-            return { success: true, redirectTo: homeMap[role] ?? '/homeAdmin' };
+            return { success: true, redirectTo: homeMap[role] ?? '/homeUSER' };
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Login failed';
             return { success: false, error: { name: 'Login failed', message } };
@@ -57,14 +51,18 @@ export const authProvider: AuthProvider = {
     },
 
     logout: async () => {
-        await authClient.signOut();
+        try {
+            await apiFetch('/api/auth/logout', { method: 'POST' });
+        } catch {
+            // ignore — cookie will expire anyway
+        }
         return { success: true, redirectTo: '/login' };
     },
 
     check: async () => {
         try {
-            const session = await authClient.getSession();
-            if (session?.data?.user) {
+            const res = await apiFetch('/api/auth/me');
+            if (res.ok) {
                 return { authenticated: true };
             }
             return { authenticated: false, redirectTo: '/login' };
@@ -75,16 +73,15 @@ export const authProvider: AuthProvider = {
 
     getIdentity: async () => {
         try {
-            const session = await authClient.getSession();
-            const user = session?.data?.user as SessionUser | undefined;
-            if (!user) return null;
+            const res = await apiFetch('/api/auth/me');
+            if (!res.ok) return null;
+            const user: MeUser = await res.json();
             return {
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role ?? 'USER',
                 approved: user.approved ?? false,
-                avatar: user.image,
             };
         } catch {
             return null;
@@ -93,9 +90,10 @@ export const authProvider: AuthProvider = {
 
     getPermissions: async () => {
         try {
-            const session = await authClient.getSession();
-            const user = session?.data?.user as SessionUser | undefined;
-            return user?.role ?? null;
+            const res = await apiFetch('/api/auth/me');
+            if (!res.ok) return null;
+            const user: MeUser = await res.json();
+            return user.role ?? null;
         } catch {
             return null;
         }
@@ -108,4 +106,3 @@ export const authProvider: AuthProvider = {
         return { error };
     },
 };
-

@@ -52,7 +52,7 @@ router.get("/election/:electionId", async (req, res) => {
        JOIN constituency c ON c.id = coe.constituency_id
        LEFT JOIN role_map rm
          ON rm.relation_id = coe.id AND rm.role = 'RO'
-       LEFT JOIN public."user" u ON u.id = rm.user_id
+       LEFT JOIN users u ON u.id = rm.user_id
        WHERE coe.election_id = $1
        ORDER BY c.name`,
       [electionId]
@@ -115,7 +115,7 @@ router.put("/:coeId/ro", async (req, res) => {
        JOIN constituency c ON c.id = coe.constituency_id
        LEFT JOIN role_map rm
          ON rm.relation_id = coe.id AND rm.role = 'RO'
-       LEFT JOIN public."user" u ON u.id = rm.user_id
+       LEFT JOIN users u ON u.id = rm.user_id
        WHERE coe.id = $1`,
       [coeId]
     );

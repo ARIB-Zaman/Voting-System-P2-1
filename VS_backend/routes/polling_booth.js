@@ -23,7 +23,7 @@ router.get("/election/:electionId/center/:centerId", async (req, res) => {
       const officersResult = await pool.query(
         `SELECT rm.id AS role_map_id, rm.user_id, u.name AS user_name
          FROM role_map rm
-         JOIN public."user" u ON u.id = rm.user_id
+         JOIN users u ON u.id = rm.user_id
          WHERE rm.relation_id = $1 AND rm.role = 'PO'
          ORDER BY u.name`,
         [booth.id]
@@ -206,7 +206,7 @@ router.post("/:boothId/officer", async (req, res) => {
 
     // Return with user name
     const user = await pool.query(
-      `SELECT name FROM public."user" WHERE id = $1`,
+      `SELECT name FROM users WHERE id = $1`,
       [user_id]
     );
 
