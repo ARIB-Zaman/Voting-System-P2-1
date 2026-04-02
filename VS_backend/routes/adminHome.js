@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-const { requireAuth } = require("../middleware/auth");
 const { createAuditLog } = require("../src/utils/logger");
 
 // GET all elections
@@ -15,7 +14,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST new election
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", async (req, res) => {
     const { name, description, start_date, end_date, status } = req.body;
 
     try {
@@ -26,7 +25,7 @@ router.post("/", requireAuth, async (req, res) => {
             [name, start_date, end_date, status]
         );
 
-        await createAuditLog(req.user.id, 'CREATE', 'election', result.rows[0].election_id, { name, status });
+        await createAuditLog(req.user?.id || 'system', 'CREATE', 'election', result.rows[0].election_id, { name, status });
 
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -75,7 +74,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE election
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
 
@@ -96,7 +95,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
             return res.status(404).json({ error: "Election not found" });
         }
 
-        await createAuditLog(req.user.id, 'DELETE', 'election', id, { name: result.rows[0].name });
+        await createAuditLog(req.user?.id || 'system', 'DELETE', 'election', id, { name: result.rows[0].name });
         await client.query("COMMIT");
         res.json({ message: "Election deleted", election: result.rows[0] });
     } catch (err) {

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { createAuditLog } = require("../src/utils/logger");
 
 /**
  * GET /api/candidate/coe/:coeId
@@ -88,6 +89,7 @@ router.delete("/:id", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Candidate not found" });
     }
+    await createAuditLog(req.user?.id || 'system', 'DELETE', 'candidate', id, { candidate_id: id });
     res.json({ message: "Candidate removed" });
   } catch (err) {
     console.error(err);
