@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const { createAuditLog } = require("../src/utils/logger");
+const { requireAuth } = require("../middleware/auth");
 
 /**
  * GET /api/candidate/coe/:coeId
@@ -28,7 +29,7 @@ router.get("/coe/:coeId", async (req, res) => {
  * POST /api/candidate
  * Add a new candidate — nomination_status defaults to PENDING
  */
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   const { name, party, constituency_of_election_id } = req.body;
   if (!name || !party || !constituency_of_election_id) {
     return res.status(400).json({ error: "name, party, and constituency_of_election_id are required" });
@@ -40,6 +41,7 @@ router.post("/", async (req, res) => {
        RETURNING candidate_id, name, party, nomination_status`,
       [name, party, constituency_of_election_id]
     );
+    await createAuditLog(req.user.id, 'CREATE', 'candidate', result.rows[0].candidate_id, `Added candidate: ${result.rows[0].name}`);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
@@ -79,9 +81,10 @@ router.put("/:id/status", async (req, res) => {
  * DELETE /api/candidate/:id
  * Remove a candidate
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
+    await createAuditLog(req.user.id, 'DELETE', 'candidate', id, `Removed candidate ID: ${id}`);
     const result = await pool.query(
       "DELETE FROM candidate WHERE candidate_id = $1 RETURNING candidate_id",
       [id]
@@ -89,7 +92,6 @@ router.delete("/:id", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Candidate not found" });
     }
-    await createAuditLog(req.user?.id || 'system', 'DELETE', 'candidate', id, { candidate_id: id });
     res.json({ message: "Candidate removed" });
   } catch (err) {
     console.error(err);

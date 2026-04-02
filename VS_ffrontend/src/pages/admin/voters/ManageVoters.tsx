@@ -36,6 +36,8 @@ const ManageVoters = () => {
     const [search, setSearch] = useState('');
     const [constituencyFilter, setConstituencyFilter] = useState('all');
     const [constituencies, setConstituencies] = useState<{ id: number; name: string }[]>([]);
+    const [electionFilter, setElectionFilter] = useState('all');
+    const [elections, setElections] = useState<{ election_id: number; name: string }[]>([]);
     
     // Edit Modal State
     const [editingVoter, setEditingVoter] = useState<Voter | null>(null);
@@ -52,7 +54,8 @@ const ManageVoters = () => {
                 page: page.toString(),
                 limit: '10',
                 search: search,
-                constituency_id: constituencyFilter
+                constituency_id: constituencyFilter,
+                ...(electionFilter !== 'all' && { election_id: electionFilter })
             });
             const res = await fetch(`http://localhost:3001/api/voters?${queryParams}`);
             const data = await res.json();
@@ -71,12 +74,19 @@ const ManageVoters = () => {
 
     useEffect(() => {
         fetchVoters(1);
-    }, [constituencyFilter, search]);
+    }, [constituencyFilter, electionFilter, search]);
 
     useEffect(() => {
+        // Fetch constituencies
         fetch('http://localhost:3001/api/constituency')
             .then(res => res.json())
             .then(data => setConstituencies(data))
+            .catch(err => console.error(err));
+
+        // Fetch elections
+        fetch('http://localhost:3001/api/election')
+            .then(res => res.json())
+            .then(data => setElections(data))
             .catch(err => console.error(err));
     }, []);
 
@@ -123,9 +133,24 @@ const ManageVoters = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-                            <div className="w-full md:w-64">
+                            <div className="w-full md:w-auto flex flex-col sm:flex-row gap-4">
+                                <Select value={electionFilter} onValueChange={setElectionFilter}>
+                                    <SelectTrigger className="w-[180px]">
+                                        <div className="flex items-center gap-2">
+                                            <Filter className="h-4 w-4" />
+                                            <SelectValue placeholder="All Elections" />
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Elections</SelectItem>
+                                        {elections.map(e => (
+                                            <SelectItem key={e.election_id} value={e.election_id.toString()}>{e.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
                                 <Select value={constituencyFilter} onValueChange={setConstituencyFilter}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-[180px]">
                                         <div className="flex items-center gap-2">
                                             <Filter className="h-4 w-4" />
                                             <SelectValue placeholder="All Constituencies" />
