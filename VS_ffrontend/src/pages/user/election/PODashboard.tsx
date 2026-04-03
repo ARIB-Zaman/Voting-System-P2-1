@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/auth-client';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ interface Voter {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
@@ -82,7 +83,7 @@ const PODashboard: React.FC<PODashboardProps> = ({
     if (!boothId || !electionId) return;
     setLoading(true);
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/voter-allocation/booth/${boothId}/election/${electionId}`
       );
       if (!res.ok) throw new Error('Failed to load voters');

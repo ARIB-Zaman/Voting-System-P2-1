@@ -1,9 +1,19 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 
 // POST / — bulk-insert constituencies into an election
-router.post("/", async (req, res) => {
+router.post("/",
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   try {
     const { election_id, constituency_ids } = req.body;
 
@@ -36,7 +46,9 @@ router.post("/", async (req, res) => {
 });
 
 // GET /election/:electionId — constituencies for an election with assigned RO
-router.get("/election/:electionId", async (req, res) => {
+router.get("/election/:electionId", 
+    requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   try {
     const { electionId } = req.params;
 
@@ -66,7 +78,16 @@ router.get("/election/:electionId", async (req, res) => {
 });
 
 // PUT /:coeId/ro — assign or unassign the RO for a constituency_of_election
-router.put("/:coeId/ro", async (req, res) => {
+router.put("/:coeId/ro", 
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { coeId } = req.params;
   const { ro_id } = req.body;
   const client = await pool.connect();
@@ -133,7 +154,16 @@ router.put("/:coeId/ro", async (req, res) => {
 
 
 // DELETE /:coeId — remove a constituency from this election
-router.delete("/:coeId", async (req, res) => {
+router.delete("/:coeId", 
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { coeId } = req.params;
   const client = await pool.connect();
 

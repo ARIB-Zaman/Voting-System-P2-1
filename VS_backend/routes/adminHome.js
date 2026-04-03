@@ -1,9 +1,19 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 
 // GET all elections
-router.get("/", async (req, res) => {
+router.get("/", 
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM election");
         res.json(result.rows);
@@ -13,7 +23,17 @@ router.get("/", async (req, res) => {
 });
 
 // POST new election
-router.post("/", async (req, res) => {
+router.post("/", 
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { name, description, start_date, end_date, status } = req.body;
 
     try {
@@ -30,7 +50,16 @@ router.post("/", async (req, res) => {
     }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", 
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { id } = req.params;
     try {
         const result = await pool.query(
@@ -44,7 +73,15 @@ router.get("/:id", async (req, res) => {
 });
 
 // PUT update election
-router.put("/:id", async (req, res) => {
+router.put("/:id", 
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { id } = req.params;
     const { name, description, start_date, end_date, status } = req.body;
 
@@ -71,7 +108,16 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE election
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", 
+        requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
 
@@ -103,7 +149,16 @@ router.delete("/:id", async (req, res) => {
 });
 
 // GET /:id/results — per-constituency vote counts + turnout for CLOSED election
-router.get("/:id/results", async (req, res) => {
+router.get("/:id/results", 
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { id } = req.params;
     try {
         const result = await pool.query(
@@ -138,7 +193,16 @@ router.get("/:id/results", async (req, res) => {
 });
 
 // GET /:electionId/constituency/:constituencyId/results — full detail for one constituency
-router.get("/:electionId/constituency/:constituencyId/results", async (req, res) => {
+router.get("/:electionId/constituency/:constituencyId/results", 
+        requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { electionId, constituencyId } = req.params;
     try {
         // 1. Resolve coe_id and basic info
@@ -212,7 +276,16 @@ router.get("/:electionId/constituency/:constituencyId/results", async (req, res)
 
 
 // GET /:id/constituency-winners — all constituencies with their winner (if any)
-router.get("/:id/constituency-winners", async (req, res) => {
+router.get("/:id/constituency-winners", 
+        requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { id } = req.params;
     try {
         const result = await pool.query(
@@ -267,7 +340,15 @@ router.get("/:id/constituency-winners", async (req, res) => {
 // GET /:id/party-seats — seat count per party for a finalized election
 
 // Mirrors the DB function get_party_seats(election_id)
-router.get("/:id/party-seats", async (req, res) => {
+router.get("/:id/party-seats", 
+        requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { id } = req.params;
     try {
         const result = await pool.query(
@@ -282,7 +363,16 @@ router.get("/:id/party-seats", async (req, res) => {
 });
 
 // PUT /:id/finalize — set election status to FINALIZED
-router.put("/:id/finalize", async (req, res) => {
+router.put("/:id/finalize", 
+        requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+    async (req, res) => {
     const { id } = req.params;
     try {
         const result = await pool.query(

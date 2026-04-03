@@ -1,9 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 // GET all constituencies
-router.get("/", async (req, res) => {
+router.get("/",
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    }
+  , async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM constituency ORDER BY name");
     res.json(result.rows);
@@ -13,7 +22,16 @@ router.get("/", async (req, res) => {
 });
 
 // GET all unassigned constituencies for a specific election
-router.get("/unassigned/:electionId", async (req, res) => {
+router.get("/unassigned/:electionId", 
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   try {
     const { electionId } = req.params;
     const result = await pool.query(
@@ -30,7 +48,9 @@ router.get("/unassigned/:electionId", async (req, res) => {
   }
 });
 // GET unassigned polling centers for a constituency in a specific election
-router.get("/:constituencyId/polling_centers/unassigned/:electionId", async (req, res) => {
+router.get("/:constituencyId/polling_centers/unassigned/:electionId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   try {
     const { constituencyId, electionId } = req.params;
     const result = await pool.query(
@@ -194,4 +214,4 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;

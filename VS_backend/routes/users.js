@@ -1,15 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-const { requireAuth } = require("../middleware/auth");
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 /**
  * GET /api/users/my-elections
  * Protected — reads the user id from the JWT cookie (req.user.id).
  * Returns all LIVE or PLANNED elections the authenticated user is assigned to
  * via role_map. Includes role (RO/PRO/PO) and a location_label.
  */
-router.get("/my-elections", requireAuth, async (req, res) => {
+router.get("/my-elections",
+    requireAuth, // first, verify JWT and attach req.user 
+  async (req, res) => {
   const userId = req.user.id;
 
   try {
@@ -120,6 +121,63 @@ router.get("/my-elections", requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/users/with-active-roles
+ * Returns all approved users (system role = USER) with their name, email,
+ * and a count of how many role_map entries they have in active (PLANNED/LIVE) elections.
+ */
+router.get("/with-active-roles",
+  requireAuth,
+  async (req, res, next) => {
+    if (req.user.role === "ADMIN") return next();
+    return res.status(403).json({ error: "Forbidden" });
+  },
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT
+           u.id,
+           u.name,
+           u.email,
+           COUNT(rm.id) FILTER (
+             WHERE (
+               CASE rm.role
+                 WHEN 'RO'  THEN (
+                   SELECT e.status FROM election e
+                   JOIN constituency_of_election coe ON coe.election_id = e.election_id
+                   WHERE coe.id = rm.relation_id
+                   LIMIT 1
+                 )
+                 WHEN 'PRO' THEN (
+                   SELECT e.status FROM election e
+                   JOIN polling_center_of_election poe ON poe.election_id = e.election_id
+                   WHERE poe.id = rm.relation_id
+                   LIMIT 1
+                 )
+                 WHEN 'PO'  THEN (
+                   SELECT e.status FROM election e
+                   JOIN polling_booth pb ON pb.election_id = e.election_id
+                   WHERE pb.id = rm.relation_id
+                   LIMIT 1
+                 )
+               END
+             ) IN ('PLANNED', 'LIVE')
+           )::int AS active_roles_count
+         FROM users u
+         LEFT JOIN role_map rm ON rm.user_id = u.id
+         WHERE u.role = 'USER'
+           AND u.approved = true
+         GROUP BY u.id, u.name, u.email
+         ORDER BY u.name ASC`
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+/**
  * GET /api/users
  * Get ALL approved users (system role = USER)
  */
@@ -137,7 +195,9 @@ router.get("/", async (req, res) => {
  * Get approved USER-role users NOT already assigned any role in the given election.
  * Used for both RO (admin) and PRO (RO dashboard) pickers.
  */
-router.get("/assignable-for-election", async (req, res) => {
+router.get("/assignable-for-election", 
+    requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { election_id } = req.query;
   if (!election_id) {
     return res.status(400).json({ error: "election_id is required" });

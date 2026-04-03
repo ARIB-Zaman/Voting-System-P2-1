@@ -1,0 +1,24 @@
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 2️⃣ Try any of the scoped roles (OR logic)
+        try {
+        await requireElectionRole("RO", "coeId")(req, res, () => {});
+        return next();
+        } catch {}
+
+        try {
+        await requireElectionRole("PRO", "coeId")(req, res, () => {});
+        return next();
+        } catch {}
+
+        try {
+        await requireElectionRole("PO", "coeId")(req, res, () => {});
+        return next();
+        } catch {}
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },

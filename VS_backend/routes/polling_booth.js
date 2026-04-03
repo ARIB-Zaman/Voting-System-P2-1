@@ -1,10 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 
 // GET /election/:electionId/center/:centerId
 // Fetch all booths for this election + center, with their PO officers
-router.get("/election/:electionId/center/:centerId", async (req, res) => {
+router.get("/election/:electionId/center/:centerId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   try {
     const { electionId, centerId } = req.params;
 
@@ -43,7 +46,9 @@ router.get("/election/:electionId/center/:centerId", async (req, res) => {
 });
 
 // POST / — create a new booth
-router.post("/", async (req, res) => {
+router.post("/", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   try {
     const { booth_number, polling_center_id, election_id } = req.body;
 
@@ -84,7 +89,9 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /:boothId — rename a booth
-router.put("/:boothId", async (req, res) => {
+router.put("/:boothId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { boothId } = req.params;
   const { booth_number } = req.body;
 
@@ -130,7 +137,9 @@ router.put("/:boothId", async (req, res) => {
 });
 
 // DELETE /:boothId — delete a booth
-router.delete("/:boothId", async (req, res) => {
+router.delete("/:boothId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { boothId } = req.params;
   const client = await pool.connect();
 
@@ -166,7 +175,9 @@ router.delete("/:boothId", async (req, res) => {
 });
 
 // POST /:boothId/officer — assign a PO to a booth
-router.post("/:boothId/officer", async (req, res) => {
+router.post("/:boothId/officer", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { boothId } = req.params;
   const { user_id } = req.body;
 
@@ -222,7 +233,9 @@ router.post("/:boothId/officer", async (req, res) => {
 });
 
 // DELETE /officer/:roleMapId — remove a PO from a booth
-router.delete("/officer/:roleMapId", async (req, res) => {
+router.delete("/officer/:roleMapId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { roleMapId } = req.params;
 
   try {

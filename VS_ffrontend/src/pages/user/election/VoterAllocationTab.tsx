@@ -33,6 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { apiFetch } from '@/lib/auth-client';
 
 interface PollingCenterRow {
   poe_id: number;
@@ -65,7 +66,7 @@ interface UnallocatedVoter {
   voter_type: string;
 }
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
   electionId,
@@ -96,7 +97,7 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
   const fetchAllocatedVoters = useCallback(async (centerId: number) => {
     setLoadingAllocated(true);
     try {
-      const res = await fetch(`${API}/voter-allocation/center/${centerId}/election/${electionId}`);
+      const res = await apiFetch(`${API}/voter-allocation/center/${centerId}/election/${electionId}`);
       if (!res.ok) throw new Error();
       setAllocatedVoters(await res.json());
     } catch {
@@ -123,7 +124,7 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
     }
     setAutoAllocating(true);
     try {
-      const res = await fetch(`${API}/voter-allocation/auto`, {
+      const res = await apiFetch(`${API}/voter-allocation/auto`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ center_id: centerId, election_id: electionId, count }),
@@ -144,7 +145,7 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
   const handleRemoveAllocation = async (voeId: number, centerId: number) => {
     setRemovingVoeId(voeId);
     try {
-      const res = await fetch(`${API}/voter-allocation/${voeId}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API}/voter-allocation/${voeId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       toast.success('Voter removed from center');
       fetchAllocatedVoters(centerId);
@@ -159,7 +160,7 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
   const handleRemoveAll = async (centerId: number) => {
     setRemovingAllCenterId(centerId);
     try {
-      const res = await fetch(`${API}/voter-allocation/center/${centerId}/election/${electionId}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API}/voter-allocation/center/${centerId}/election/${electionId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       toast.success(data.message || 'All voters removed');
@@ -188,7 +189,7 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
     const delayDebounce = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(
+        const res = await apiFetch(
           `${API}/voter-allocation/search?q=${encodeURIComponent(searchQuery)}&election_id=${electionId}&constituency_id=${constituencyId}&limit=50`
         );
         if (res.ok) setSearchResults(await res.json());

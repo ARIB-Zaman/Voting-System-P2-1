@@ -1,12 +1,27 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 /**
  * GET /api/candidate/coe/:coeId
  * All candidates for a constituency_of_election
  */
-router.get("/coe/:coeId", async (req, res) => {
+router.get("/coe/:coeId", 
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 2️⃣ Try any of the scoped roles (OR logic)
+        try {
+        await requireElectionRole("RO", "coeId")(req, res, () => {});
+        return next();
+        } catch {}
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { coeId } = req.params;
   try {
     const result = await pool.query(
@@ -27,7 +42,18 @@ router.get("/coe/:coeId", async (req, res) => {
  * POST /api/candidate
  * Add a new candidate — nomination_status defaults to PENDING
  */
-router.post("/", async (req, res) => {
+router.post("/", 
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 2️⃣ Try any of the scoped roles (OR logic)
+        try {
+        await requireElectionRole("RO", "constituency_of_election_id", "body")(req, res, () => {});
+        return next();
+        } catch {}
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { name, party, constituency_of_election_id } = req.body;
   if (!name || !party || !constituency_of_election_id) {
     return res.status(400).json({ error: "name, party, and constituency_of_election_id are required" });
@@ -50,7 +76,16 @@ router.post("/", async (req, res) => {
  * PUT /api/candidate/:id/status
  * Update nomination_status — APPROVED or REJECTED
  */
-router.put("/:id/status", async (req, res) => {
+router.put("/:id/status", 
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { id } = req.params;
   const { nomination_status } = req.body;
   if (!["APPROVED", "REJECTED", "PENDING"].includes(nomination_status)) {
@@ -78,7 +113,9 @@ router.put("/:id/status", async (req, res) => {
  * DELETE /api/candidate/:id
  * Remove a candidate
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
@@ -100,7 +137,9 @@ router.delete("/:id", async (req, res) => {
  * Total allocated voters across all polling centers for this constituency_of_election.
  * Uses voter_of_election joined via polling_center_of_election → polling_center.
  */
-router.get("/voter-count/:coeId", async (req, res) => {
+router.get("/voter-count/:coeId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { coeId } = req.params;
   try {
     // Get constituency_id and election_id from coe row
@@ -134,7 +173,9 @@ router.get("/voter-count/:coeId", async (req, res) => {
  * Per-center voter count for all centers in this constituency_of_election.
  * Returns [{ poe_id, polling_center_id, name, voter_count }]
  */
-router.get("/center-voter-counts/:coeId", async (req, res) => {
+router.get("/center-voter-counts/:coeId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { coeId } = req.params;
   try {
     const coeResult = await pool.query(

@@ -18,6 +18,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { X } from 'lucide-react'
+import { apiFetch } from '@/lib/auth-client'
 
 
 
@@ -48,7 +49,7 @@ const CreateElection = () => {
   React.useEffect(() => {
     const fetchConstituencies = async () => {
       try {
-        const res = await fetch("http://localhost:3001/api/constituency")
+        const res = await apiFetch("/api/constituency")
         const data = await res.json()
         setConstituencies(data)
       } catch (err) {
@@ -117,7 +118,7 @@ const CreateElection = () => {
 
     // API call goes here
     try {
-      const res = await fetch("http://localhost:3001/api/election", {
+      const res = await apiFetch("/api/election", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -134,7 +135,7 @@ const CreateElection = () => {
           
       const electionId = data.election_id
 
-      await fetch("http://localhost:3001/api/constituency_of_election", {
+      await apiFetch("/api/constituency_of_election", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

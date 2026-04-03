@@ -70,6 +70,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ interface AssignableUser {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   LIVE: {
@@ -249,7 +250,7 @@ const ElectionDetailsAD: React.FC = () => {
   const fetchElection = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/election/${id}`);
+      const res = await apiFetch(`${API}/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch election');
       const data = await res.json();
       setElection(data);
@@ -261,7 +262,7 @@ const ElectionDetailsAD: React.FC = () => {
   const fetchConstituencies = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/constituency_of_election/election/${id}`);
+      const res = await apiFetch(`${API}/constituency_of_election/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch constituencies');
       const data = await res.json();
       setConstituencies(data);
@@ -273,7 +274,7 @@ const ElectionDetailsAD: React.FC = () => {
   const fetchAssignableUsers = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/users/assignable-for-election?election_id=${id}`);
+      const res = await apiFetch(`${API}/users/assignable-for-election?election_id=${id}`);
       if (!res.ok) throw new Error('Failed to fetch assignable users');
       const data = await res.json();
       setAssignableUsers(data);
@@ -285,7 +286,7 @@ const ElectionDetailsAD: React.FC = () => {
   const fetchUnassignedConstituencies = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/constituency/unassigned/${id}`);
+      const res = await apiFetch(`${API}/constituency/unassigned/${id}`);
       if (!res.ok) throw new Error('Failed to fetch unassigned constituencies');
       const data = await res.json();
       setUnassignedConstituencies(data);
@@ -297,7 +298,7 @@ const ElectionDetailsAD: React.FC = () => {
   const fetchAssignedVoters = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/voter-allocation/election/${id}`);
+      const res = await apiFetch(`${API}/voter-allocation/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch assigned voters');
       const data = await res.json();
       setAssignedVoters(data);
@@ -319,7 +320,7 @@ const ElectionDetailsAD: React.FC = () => {
         q: search,
         limit: '200',
       });
-      const res = await fetch(`${API}/voter-allocation/search?${params}`);
+      const res = await apiFetch(`${API}/voter-allocation/search?${params}`);
       if (!res.ok) throw new Error('Failed to fetch voters');
       const data = await res.json();
       setDialogVoters(data);
@@ -373,7 +374,7 @@ const ElectionDetailsAD: React.FC = () => {
       if (body.end_date)
         body.end_date = new Date(body.end_date as string).toISOString();
 
-      const res = await fetch(`${API}/election/${election.election_id}`, {
+      const res = await apiFetch(`${API}/election/${election.election_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -395,7 +396,7 @@ const ElectionDetailsAD: React.FC = () => {
     if (!election) return;
     setDeletingElection(true);
     try {
-      const res = await fetch(`${API}/election/${election.election_id}`, {
+      const res = await apiFetch(`${API}/election/${election.election_id}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Delete failed');
@@ -413,7 +414,7 @@ const ElectionDetailsAD: React.FC = () => {
     // Re-fetch election-scoped eligible users each time the editor opens
     if (id) {
       try {
-        const res = await fetch(`${API}/users/assignable-for-election?election_id=${id}`);
+        const res = await apiFetch(`${API}/users/assignable-for-election?election_id=${id}`);
         if (res.ok) setAssignableUsers(await res.json());
       } catch { /* non-critical */ }
     }
@@ -423,7 +424,7 @@ const ElectionDetailsAD: React.FC = () => {
   const saveRO = async (coeId: number, roId: string | null) => {
     setSavingRoCoeId(coeId);
     try {
-      const res = await fetch(`${API}/constituency_of_election/${coeId}/ro`, {
+      const res = await apiFetch(`${API}/constituency_of_election/${coeId}/ro`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ro_id: roId }),
@@ -446,7 +447,7 @@ const ElectionDetailsAD: React.FC = () => {
     if (!election) return;
     setAddingConstituency(true);
     try {
-      const res = await fetch(`${API}/constituency_of_election`, {
+      const res = await apiFetch(`${API}/constituency_of_election`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -469,7 +470,7 @@ const ElectionDetailsAD: React.FC = () => {
   const deleteConstituency = async (coeId: number) => {
     setDeletingCoeId(coeId);
     try {
-      const res = await fetch(`${API}/constituency_of_election/${coeId}`, {
+      const res = await apiFetch(`${API}/constituency_of_election/${coeId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Delete failed');
@@ -527,7 +528,7 @@ const ElectionDetailsAD: React.FC = () => {
     let failCount = 0;
     for (const nid of selectedVoterNids) {
       try {
-        const res = await fetch(`${API}/voter-allocation/add`, {
+        const res = await apiFetch(`${API}/voter-allocation/add`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nid, election_id: id }),
@@ -550,7 +551,7 @@ const ElectionDetailsAD: React.FC = () => {
     if (!id) return;
     setRemovingVoterNid(voter.nid);
     try {
-      const res = await fetch(`${API}/voter-allocation/remove`, {
+      const res = await apiFetch(`${API}/voter-allocation/remove`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

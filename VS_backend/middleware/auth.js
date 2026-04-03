@@ -49,10 +49,11 @@ function requireRole(...roles) {
  *
  * Usage: requireElectionRole('RO', 'coeId')
  */
-function requireElectionRole(role, paramName) {
+function requireElectionRole(role, paramName, source = 'params') {
     return async (req, res, next) => {
         const userId = req.user?.id;
-        const relationId = req.params[paramName];
+        const relationId = req[source]?.[paramName];
+        
         if (!userId || !relationId) {
             return res.status(403).json({ error: 'Forbidden' });
         }

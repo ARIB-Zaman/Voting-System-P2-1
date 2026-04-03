@@ -21,6 +21,7 @@ import {
   YAxis,
 } from 'recharts';
 import { ArrowLeft, MapPin, Medal, TrendingUp, Users, Vote } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ interface DetailData {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const turnoutPct = (cast: number, total: number) =>
   total === 0 ? 0 : Math.round((cast / total) * 1000) / 10;
@@ -86,7 +87,7 @@ const FinalizedConstituencyDetail: React.FC = () => {
     if (!id || !cId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API}/election/${id}/constituency/${cId}/results`);
+      const res = await apiFetch(`${API}/election/${id}/constituency/${cId}/results`);
       if (!res.ok) throw new Error('Failed to fetch constituency results');
       setData(await res.json());
     } catch (e: unknown) {

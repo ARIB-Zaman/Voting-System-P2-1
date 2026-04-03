@@ -40,6 +40,7 @@ const ElectionEntry: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  
   useEffect(() => {
     apiFetch('/api/users/my-elections')
       .then((res) => {

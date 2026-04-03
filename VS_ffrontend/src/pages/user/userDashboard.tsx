@@ -66,6 +66,7 @@ const roleGradientClass: Record<ElectionRole, string> = {
   PO: 'from-teal-500/15 to-teal-500/5',
 };
 
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const UserDashboard: React.FC = () => {
