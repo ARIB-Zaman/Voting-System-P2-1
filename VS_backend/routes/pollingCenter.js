@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 // Accessible by RO, PRO, and ADMIN
 router.use(requireAuth, requireRole('RO', 'PRO', 'ADMIN'));
 

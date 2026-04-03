@@ -14,10 +14,10 @@ router.use(requireAuth, requireRole('ADMIN'));
 router.get('/pending', async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT id, name, email, role, "createdAt"
-             FROM "user"
+            `SELECT id, name, email, role, created_at AS "createdAt"
+             FROM users
              WHERE approved = false
-             ORDER BY "createdAt" DESC`
+             ORDER BY created_at DESC`
         );
         res.json(result.rows);
     } catch (err) {
@@ -33,7 +33,7 @@ router.post('/approve/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
         const result = await pool.query(
-            'UPDATE "user" SET approved = true WHERE id = $1 RETURNING id, name, email, role',
+            'UPDATE users SET approved = true WHERE id = $1 RETURNING id, name, email, role',
             [userId]
         );
         if (result.rows.length === 0) {
@@ -49,15 +49,13 @@ router.post('/approve/:userId', async (req, res) => {
 /**
  * POST /api/admin/reject/:userId
  * Deletes the user (reject = remove from system).
+ * Cascades to role_map automatically.
  */
 router.post('/reject/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
-        // Delete sessions first (FK constraint), then user
-        await pool.query('DELETE FROM session WHERE "userId" = $1', [userId]);
-        await pool.query('DELETE FROM account WHERE "userId" = $1', [userId]);
         const result = await pool.query(
-            'DELETE FROM "user" WHERE id = $1 AND approved = false RETURNING id, email',
+            'DELETE FROM users WHERE id = $1 AND approved = false RETURNING id, email',
             [userId]
         );
         if (result.rows.length === 0) {

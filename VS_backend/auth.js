@@ -1,31 +1,5 @@
-require('dotenv').config();
-const { betterAuth } = require('better-auth');
-const pool = require('./db');
-
-const auth = betterAuth({
-  database: pool,
-  baseURL: process.env.BETTER_AUTH_URL,
-  secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: [process.env.FRONTEND_URL],
-  emailAndPassword: {
-    enabled: true,
-  },
-  user: {
-    additionalFields: {
-      role: {
-        type: 'string',
-        required: false,
-        defaultValue: 'USER',
-        input: true,
-      },
-      approved: {
-        type: 'boolean',
-        required: false,
-        defaultValue: false,
-        input: false, // only set server-side (admin approval)
-      },
-    },
-  },
-});
-
-module.exports = { auth };
+// Better Auth has been fully removed.
+// Authentication is now handled by routes/auth.js (custom JWT implementation).
+// This file is intentionally left as a placeholder so existing requires don't crash
+// during the transition — it will be cleaned up once all references are removed.
+module.exports = {};

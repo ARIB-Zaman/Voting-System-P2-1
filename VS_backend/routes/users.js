@@ -1,15 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 /**
- * GET /api/users/my-elections?userId=<id>
- * Returns all LIVE or PLANNED elections the given user is assigned to via role_map.
- * Includes role (RO/PRO/PO) and a location_label describing their jurisdiction.
+ * GET /api/users/my-elections
+ * Protected — reads the user id from the JWT cookie (req.user.id).
+ * Returns all LIVE or PLANNED elections the authenticated user is assigned to
+ * via role_map. Includes role (RO/PRO/PO) and a location_label.
  */
-router.get("/my-elections", async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(400).json({ error: "userId is required" });
+router.get("/my-elections",
+    requireAuth, // first, verify JWT and attach req.user 
+  async (req, res) => {
+  const userId = req.user.id;
 
   try {
     // Fetch all role_map entries for this user tied to active/planned elections
@@ -37,7 +39,6 @@ router.get("/my-elections", async (req, res) => {
         let location_label = null;
 
         if (row.role === 'RO') {
-          // relation_id → constituency_of_election → constituency
           const r = await pool.query(
             `SELECT c.name, c.region
              FROM constituency_of_election coe
@@ -50,9 +51,8 @@ router.get("/my-elections", async (req, res) => {
             location_label = region ? `${name}, ${region}` : name;
           }
         } else if (row.role === 'PRO') {
-          // relation_id → polling_center_of_election → polling_center
           const r = await pool.query(
-            `SELECT pc.name, pc.address, poe.polling_center_id
+            `SELECT pc.name, pc.address
              FROM polling_center_of_election poe
              JOIN polling_center pc ON pc.id = poe.polling_center_id
              WHERE poe.id = $1`,
@@ -63,7 +63,6 @@ router.get("/my-elections", async (req, res) => {
             location_label = address ? `${name} — ${address}` : name;
           }
         } else if (row.role === 'PO') {
-          // relation_id → polling_booth → polling_center
           const r = await pool.query(
             `SELECT pb.booth_number, pc.name AS center_name
              FROM polling_booth pb
@@ -77,24 +76,17 @@ router.get("/my-elections", async (req, res) => {
           }
         }
 
-        // For RO, expose coe_id and constituency_name
         let coe_id = null;
         let constituency_name = null;
-
-        // For PRO, expose poe_id and polling_center_id
         let poe_id = null;
         let polling_center_id = null;
-
-        // For PO, expose booth_id
         let booth_id = null;
 
         if (row.role === 'RO') {
           coe_id = row.relation_id;
-          // location_label for RO is "name" or "name, region" — extract name part
           constituency_name = location_label ? location_label.split(',')[0].trim() : null;
         } else if (row.role === 'PRO') {
           poe_id = row.relation_id;
-          // Re-query polling_center_id from poe
           const pcRow = await pool.query(
             'SELECT polling_center_id FROM polling_center_of_election WHERE id = $1',
             [row.relation_id]
@@ -129,79 +121,69 @@ router.get("/my-elections", async (req, res) => {
 });
 
 /**
+ * GET /api/users/with-active-roles
+ * Returns all approved users (system role = USER) with their name, email,
+ * and a count of how many role_map entries they have in active (PLANNED/LIVE) elections.
+ */
+router.get("/with-active-roles",
+  requireAuth,
+  async (req, res, next) => {
+    if (req.user.role === "ADMIN") return next();
+    return res.status(403).json({ error: "Forbidden" });
+  },
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT
+           u.id,
+           u.name,
+           u.email,
+           COUNT(rm.id) FILTER (
+             WHERE (
+               CASE rm.role
+                 WHEN 'RO'  THEN (
+                   SELECT e.status FROM election e
+                   JOIN constituency_of_election coe ON coe.election_id = e.election_id
+                   WHERE coe.id = rm.relation_id
+                   LIMIT 1
+                 )
+                 WHEN 'PRO' THEN (
+                   SELECT e.status FROM election e
+                   JOIN polling_center_of_election poe ON poe.election_id = e.election_id
+                   WHERE poe.id = rm.relation_id
+                   LIMIT 1
+                 )
+                 WHEN 'PO'  THEN (
+                   SELECT e.status FROM election e
+                   JOIN polling_booth pb ON pb.election_id = e.election_id
+                   WHERE pb.id = rm.relation_id
+                   LIMIT 1
+                 )
+               END
+             ) IN ('PLANNED', 'LIVE')
+           )::int AS active_roles_count
+         FROM users u
+         LEFT JOIN role_map rm ON rm.user_id = u.id
+         WHERE u.role = 'USER'
+           AND u.approved = true
+         GROUP BY u.id, u.name, u.email
+         ORDER BY u.name ASC`
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+/**
  * GET /api/users
- * Get ALL users
+ * Get ALL approved users (system role = USER)
  */
 router.get("/", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM users");
-    res.json(result.rows);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/users/ro
- * Get users with role = RO
- */
-router.get("/ro", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT id, name FROM public.\"user\" WHERE role = $1 AND approved = true",
-      ["RO"]
-    );
-
-    res.json(result.rows);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/users/pro
- * Get users with role = PRO (Presiding Officers)
- */
-router.get("/pro", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT id, name FROM public.\"user\" WHERE role = $1 AND approved = true",
-      ["PRO"]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/users/po
- * Get users with role = PO (Polling Officers)
- */
-router.get("/po", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT id, name FROM public.\"user\" WHERE role = $1 AND approved = true",
-      ["PO"]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/users/assignable
- * Get all approved users with role = USER (assignable as Returning Officer)
- */
-router.get("/assignable", async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT id, name FROM public."user" WHERE role = $1 AND approved = true ORDER BY name',
-      ["USER"]
-    );
+    const result = await pool.query("SELECT id, name, email, role, approved, created_at FROM users ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -213,16 +195,18 @@ router.get("/assignable", async (req, res) => {
  * Get approved USER-role users NOT already assigned any role in the given election.
  * Used for both RO (admin) and PRO (RO dashboard) pickers.
  */
-router.get("/assignable-for-election", async (req, res) => {
+router.get("/assignable-for-election", 
+    requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { election_id } = req.query;
   if (!election_id) {
     return res.status(400).json({ error: "election_id is required" });
   }
   try {
     const result = await pool.query(
-      `SELECT u.id, u.name, u.role as base_role
-       FROM public."user" u
-       WHERE u.role != 'ADMIN'
+      `SELECT u.id, u.name
+       FROM users u
+       WHERE u.role = 'USER'
          AND u.approved = true
          AND u.id NOT IN (
            SELECT rm.user_id
@@ -238,5 +222,20 @@ router.get("/assignable-for-election", async (req, res) => {
   }
 });
 
-module.exports = router;
+/**
+ * GET /api/users/assignable
+ * Get all approved users with role = USER (assignable as officers)
+ */
+router.get("/assignable", async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name FROM users WHERE role = $1 AND approved = true ORDER BY name',
+      ["USER"]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+module.exports = router;

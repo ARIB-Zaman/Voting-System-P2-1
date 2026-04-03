@@ -64,6 +64,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ interface Candidate {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   LIVE: {
@@ -246,7 +247,7 @@ const ConstituencyDetails: React.FC = () => {
   const fetchElection = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/election/${id}`);
+      const res = await apiFetch(`${API}/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch election');
       setElection(await res.json());
     } catch (e: unknown) {
@@ -257,7 +258,7 @@ const ConstituencyDetails: React.FC = () => {
   const fetchConstituency = useCallback(async () => {
     if (!id || !cId) return;
     try {
-      const res = await fetch(`${API}/constituency_of_election/election/${id}`);
+      const res = await apiFetch(`${API}/constituency_of_election/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch constituency info');
       const all: ConstituencyInfo[] = await res.json();
       const match = all.find((c) => String(c.constituency_id) === String(cId));
@@ -271,7 +272,7 @@ const ConstituencyDetails: React.FC = () => {
   const fetchPollingCenters = useCallback(async () => {
     if (!id || !cId) return;
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/polling_center_of_election/election/${id}/constituency/${cId}`
       );
       if (!res.ok) throw new Error('Failed to fetch polling centers');
@@ -283,7 +284,7 @@ const ConstituencyDetails: React.FC = () => {
 
   const fetchAssignableUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/users/assignable-for-election?election_id=${id}`);
+      const res = await apiFetch(`${API}/users/assignable-for-election?election_id=${id}`);
       if (!res.ok) throw new Error('Failed to fetch users');
       setAssignableUsers(await res.json());
     } catch {
@@ -294,7 +295,7 @@ const ConstituencyDetails: React.FC = () => {
   const fetchUnassignedCenters = useCallback(async () => {
     if (!id || !cId) return;
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/constituency/${cId}/polling_centers/unassigned/${id}`
       );
       if (!res.ok) throw new Error('Failed to fetch unassigned centers');
@@ -307,7 +308,7 @@ const ConstituencyDetails: React.FC = () => {
   const fetchCandidates = useCallback(async (coeId: number) => {
     setCandidatesLoading(true);
     try {
-      const res = await fetch(`${API}/candidate/coe/${coeId}`);
+      const res = await apiFetch(`${API}/candidate/coe/${coeId}`);
       if (!res.ok) throw new Error('Failed to fetch candidates');
       setCandidates(await res.json());
     } catch {
@@ -372,7 +373,7 @@ const ConstituencyDetails: React.FC = () => {
     if (!election || selectedCenterIds.size === 0) return;
     setAddingCenters(true);
     try {
-      const res = await fetch(`${API}/polling_center_of_election`, {
+      const res = await apiFetch(`${API}/polling_center_of_election`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -406,7 +407,7 @@ const ConstituencyDetails: React.FC = () => {
     if (editingPoeId === null) return;
     setSavingPro(true);
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/polling_center_of_election/${editingPoeId}/pro`,
         {
           method: 'PUT',
@@ -432,7 +433,7 @@ const ConstituencyDetails: React.FC = () => {
   const deletePollingCenter = async (poeId: number) => {
     setDeletingPoeId(poeId);
     try {
-      const res = await fetch(`${API}/polling_center_of_election/${poeId}`, {
+      const res = await apiFetch(`${API}/polling_center_of_election/${poeId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Delete failed');
@@ -452,7 +453,7 @@ const ConstituencyDetails: React.FC = () => {
   ) => {
     setUpdatingCandidateId(candidateId);
     try {
-      const res = await fetch(`${API}/candidate/${candidateId}/status`, {
+      const res = await apiFetch(`${API}/candidate/${candidateId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nomination_status: status }),

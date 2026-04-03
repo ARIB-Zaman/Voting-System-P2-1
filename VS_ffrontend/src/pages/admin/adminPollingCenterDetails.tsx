@@ -54,6 +54,7 @@ import {
   Vote,
   X,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ interface AssignableUser {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   LIVE: {
@@ -212,7 +213,7 @@ const AdminPollingCenterDetails: React.FC = () => {
   const fetchElection = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${API}/election/${id}`);
+      const res = await apiFetch(`${API}/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch election');
       setElection(await res.json());
     } catch (e: unknown) {
@@ -223,7 +224,7 @@ const AdminPollingCenterDetails: React.FC = () => {
   const fetchConstituency = useCallback(async () => {
     if (!id || !cId) return;
     try {
-      const res = await fetch(`${API}/constituency_of_election/election/${id}`);
+      const res = await apiFetch(`${API}/constituency_of_election/election/${id}`);
       if (!res.ok) throw new Error('Failed to fetch constituency');
       const all: ConstituencyInfo[] = await res.json();
       const match = all.find((c) => String(c.constituency_id) === String(cId));
@@ -236,7 +237,7 @@ const AdminPollingCenterDetails: React.FC = () => {
   const fetchCenter = useCallback(async () => {
     if (!id || !cId || !centerId) return;
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/polling_center_of_election/election/${id}/constituency/${cId}`
       );
       if (!res.ok) throw new Error('Failed to fetch center');
@@ -254,7 +255,7 @@ const AdminPollingCenterDetails: React.FC = () => {
   const fetchBooths = useCallback(async () => {
     if (!id || !centerId) return;
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/polling_booth/election/${id}/center/${centerId}`
       );
       if (!res.ok) throw new Error('Failed to fetch booths');
@@ -266,7 +267,7 @@ const AdminPollingCenterDetails: React.FC = () => {
 
   const fetchAssignableUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/users/assignable-for-election?election_id=${id}`);
+      const res = await apiFetch(`${API}/users/assignable-for-election?election_id=${id}`);
       if (!res.ok) return;
       setAssignableUsers(await res.json());
     } catch {
@@ -293,7 +294,7 @@ const AdminPollingCenterDetails: React.FC = () => {
     if (!newBoothNumber || !centerId || !id) return;
     setAddingBooth(true);
     try {
-      const res = await fetch(`${API}/polling_booth`, {
+      const res = await apiFetch(`${API}/polling_booth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -333,7 +334,7 @@ const AdminPollingCenterDetails: React.FC = () => {
     if (editingBoothId === null || !editBoothNumber) return;
     setSavingBooth(true);
     try {
-      const res = await fetch(`${API}/polling_booth/${editingBoothId}`, {
+      const res = await apiFetch(`${API}/polling_booth/${editingBoothId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ booth_number: Number(editBoothNumber) }),
@@ -362,7 +363,7 @@ const AdminPollingCenterDetails: React.FC = () => {
   // ── Delete booth ───────────────────────────────────────────────────────
   const deleteBooth = async (boothId: number) => {
     try {
-      const res = await fetch(`${API}/polling_booth/${boothId}`, {
+      const res = await apiFetch(`${API}/polling_booth/${boothId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete booth');
@@ -376,7 +377,7 @@ const AdminPollingCenterDetails: React.FC = () => {
   // ── Add officer ────────────────────────────────────────────────────────
   const addOfficer = async (boothId: number, userId: string) => {
     try {
-      const res = await fetch(`${API}/polling_booth/${boothId}/officer`, {
+      const res = await apiFetch(`${API}/polling_booth/${boothId}/officer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId }),
@@ -402,7 +403,7 @@ const AdminPollingCenterDetails: React.FC = () => {
   // ── Remove officer ─────────────────────────────────────────────────────
   const removeOfficer = async (boothId: number, roleMapId: number) => {
     try {
-      const res = await fetch(`${API}/polling_booth/officer/${roleMapId}`, {
+      const res = await apiFetch(`${API}/polling_booth/officer/${roleMapId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to remove officer');

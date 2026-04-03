@@ -32,6 +32,7 @@ import {
   Users,
   Vote,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ interface ConstituencyResult {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
@@ -85,8 +86,8 @@ const ClosedElectionResults: React.FC = () => {
     setLoading(true);
     try {
       const [elecRes, resultsRes] = await Promise.all([
-        fetch(`${API}/election/${id}`),
-        fetch(`${API}/election/${id}/results`),
+        apiFetch(`${API}/election/${id}`),
+        apiFetch(`${API}/election/${id}/results`),
       ]);
       if (!elecRes.ok) throw new Error('Failed to fetch election');
       if (!resultsRes.ok) throw new Error('Failed to fetch results');
@@ -112,7 +113,7 @@ const ClosedElectionResults: React.FC = () => {
     if (!election) return;
     setFinalizing(true);
     try {
-      const res = await fetch(`${API}/election/${election.election_id}/finalize`, {
+      const res = await apiFetch(`${API}/election/${election.election_id}/finalize`, {
         method: 'PUT',
       });
       if (!res.ok) throw new Error('Finalize failed');

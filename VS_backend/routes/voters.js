@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const crypto = require("crypto");
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 /**
  * POST /api/voters/add-voter
  * Add a single voter to the master list.

@@ -74,6 +74,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/auth-client';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ type TabKey = 'polling-booths' | 'voter-allocation';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
@@ -210,7 +211,7 @@ const BoothVoterAllocationTab: React.FC<{
     async (boothId: number) => {
       setLoadingVoters(true);
       try {
-        const res = await fetch(
+        const res = await apiFetch(
           `${API}/voter-allocation/booth/${boothId}/election/${electionId}`
         );
         if (!res.ok) throw new Error();
@@ -238,7 +239,7 @@ const BoothVoterAllocationTab: React.FC<{
   const handleDistribute = async () => {
     setDistributing(true);
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/voter-allocation/center/${pollingCenterId}/election/${electionId}/distribute`,
         { method: 'POST' }
       );
@@ -258,7 +259,7 @@ const BoothVoterAllocationTab: React.FC<{
   const handleUnassignVoter = async (voeId: number) => {
     setRemovingVoeId(voeId);
     try {
-      const res = await fetch(`${API}/voter-allocation/${voeId}/booth`, {
+      const res = await apiFetch(`${API}/voter-allocation/${voeId}/booth`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ booth_id: null }),
@@ -288,7 +289,7 @@ const BoothVoterAllocationTab: React.FC<{
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(
+        const res = await apiFetch(
           `${API}/voter-allocation/center/${pollingCenterId}/election/${electionId}/unassigned-booths?q=${encodeURIComponent(searchQuery)}&limit=100`
         );
         if (res.ok) setSearchResults(await res.json());
@@ -315,7 +316,7 @@ const BoothVoterAllocationTab: React.FC<{
     try {
       await Promise.all(
         Array.from(selectedVoeIds).map((voeId) =>
-          fetch(`${API}/voter-allocation/${voeId}/booth`, {
+          apiFetch(`${API}/voter-allocation/${voeId}/booth`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ booth_id: manualTargetBoothId }),
@@ -591,7 +592,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
   const fetchBooths = useCallback(async () => {
     setBoothsLoading(true);
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API}/polling_booth/election/${electionId}/center/${pollingCenterId}`
       );
       if (!res.ok) throw new Error();
@@ -605,7 +606,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
 
   const fetchAssignableUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/users/assignable-for-election?election_id=${electionId}`);
+      const res = await apiFetch(`${API}/users/assignable-for-election?election_id=${electionId}`);
       if (res.ok) setAssignableUsers(await res.json());
     } catch { /* non-critical */ }
   }, []);
@@ -613,7 +614,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
   const fetchStats = useCallback(async () => {
     try {
       // Total voters allocated to center
-      const centerRes = await fetch(
+      const centerRes = await apiFetch(
         `${API}/voter-allocation/center/${pollingCenterId}/election/${electionId}`
       );
       if (centerRes.ok) {
@@ -635,7 +636,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
     if (!newBoothNumber) return;
     setAddingBooth(true);
     try {
-      const res = await fetch(`${API}/polling_booth`, {
+      const res = await apiFetch(`${API}/polling_booth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -664,7 +665,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
     if (editingBoothId === null || !editBoothNumber) return;
     setSavingBooth(true);
     try {
-      const res = await fetch(`${API}/polling_booth/${editingBoothId}`, {
+      const res = await apiFetch(`${API}/polling_booth/${editingBoothId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ booth_number: Number(editBoothNumber) }),
@@ -688,7 +689,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
 
   const deleteBooth = async (boothId: number) => {
     try {
-      const res = await fetch(`${API}/polling_booth/${boothId}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API}/polling_booth/${boothId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setBooths((prev) => prev.filter((b) => b.id !== boothId));
       toast.success('Booth deleted');
@@ -699,7 +700,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
 
   const addOfficer = async (boothId: number, userId: string) => {
     try {
-      const res = await fetch(`${API}/polling_booth/${boothId}/officer`, {
+      const res = await apiFetch(`${API}/polling_booth/${boothId}/officer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId }),
@@ -720,7 +721,7 @@ const PRODashboard: React.FC<PRODashboardProps> = ({
 
   const removeOfficer = async (boothId: number, roleMapId: number) => {
     try {
-      const res = await fetch(`${API}/polling_booth/officer/${roleMapId}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API}/polling_booth/officer/${roleMapId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setBooths((prev) =>
         prev.map((b) =>

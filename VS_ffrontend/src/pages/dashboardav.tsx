@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { CalendarCheck2, CheckCircle2, ClipboardList, PlusCircle, Search } from 'lucide-react';
 import { CreateButton } from '@/components/refine-ui/buttons/create';
+import { apiFetch } from '@/lib/auth-client';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -92,7 +93,7 @@ const Dashboard = () => {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/election')
+    apiFetch('/api/election')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch');
         return res.json();
