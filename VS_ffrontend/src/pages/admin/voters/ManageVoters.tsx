@@ -10,6 +10,7 @@ import { Breadcrumb } from '@/components/refine-ui/layout/breadcrumb';
 import { Search, Filter, Edit, Trash2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import EditVoterModal from './EditVoterModal';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { apiFetch } from '@/lib/auth-client';
 
 interface Voter {
     nid: string;
@@ -38,11 +39,11 @@ const ManageVoters = () => {
     const [constituencies, setConstituencies] = useState<{ id: number; name: string }[]>([]);
     const [electionFilter, setElectionFilter] = useState('all');
     const [elections, setElections] = useState<{ election_id: number; name: string }[]>([]);
-    
+
     // Edit Modal State
     const [editingVoter, setEditingVoter] = useState<Voter | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    
+
     // Delete Alert State
     const [deletingVoterNid, setDeletingVoterNid] = useState<string | null>(null);
     const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -57,7 +58,7 @@ const ManageVoters = () => {
                 constituency_id: constituencyFilter,
                 ...(electionFilter !== 'all' && { election_id: electionFilter })
             });
-            const res = await fetch(`http://localhost:3001/api/voters?${queryParams}`);
+            const res = await apiFetch(`/api/voters?${queryParams}`);
             const data = await res.json();
             if (res.ok) {
                 setVoters(data.data);
@@ -78,13 +79,13 @@ const ManageVoters = () => {
 
     useEffect(() => {
         // Fetch constituencies
-        fetch('http://localhost:3001/api/constituency')
+        fetch('/api/constituency')
             .then(res => res.json())
             .then(data => setConstituencies(data))
             .catch(err => console.error(err));
 
         // Fetch elections
-        fetch('http://localhost:3001/api/election')
+        fetch('/api/election')
             .then(res => res.json())
             .then(data => setElections(data))
             .catch(err => console.error(err));
@@ -126,8 +127,8 @@ const ManageVoters = () => {
                         <div className="flex flex-col md:flex-row gap-4 mb-6">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search by NID or Name..." 
+                                <Input
+                                    placeholder="Search by NID or Name..."
                                     className="pl-10"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
@@ -204,11 +205,10 @@ const ManageVoters = () => {
                                                 <TableCell className="font-medium">{voter.name}</TableCell>
                                                 <TableCell>{voter.phone || "—"}</TableCell>
                                                 <TableCell>
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                                        voter.voter_type === 'POSTAL' 
-                                                        ? 'bg-amber-100 text-amber-700' 
-                                                        : 'bg-green-100 text-green-700'
-                                                    }`}>
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${voter.voter_type === 'POSTAL'
+                                                            ? 'bg-amber-100 text-amber-700'
+                                                            : 'bg-green-100 text-green-700'
+                                                        }`}>
                                                         {voter.voter_type}
                                                     </span>
                                                 </TableCell>
@@ -217,8 +217,8 @@ const ManageVoters = () => {
                                                 </TableCell>
                                                 <TableCell className="text-right pr-6">
                                                     <div className="flex justify-end gap-2">
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="icon"
                                                             className="h-8 w-8 text-primary border-primary/20 hover:bg-primary/5"
                                                             onClick={() => {
@@ -228,8 +228,8 @@ const ManageVoters = () => {
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="icon"
                                                             className="h-8 w-8 text-destructive border-destructive/20 hover:bg-destructive/5"
                                                             onClick={() => {
@@ -255,9 +255,9 @@ const ManageVoters = () => {
                                     Showing <span className="font-bold">{voters.length}</span> of <span className="font-bold">{pagination.total}</span> voters
                                 </p>
                                 <div className="flex gap-2">
-                                    <Button 
-                                        variant="outline" 
-                                        size="sm" 
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         disabled={pagination.page === 1}
                                         onClick={() => fetchVoters(pagination.page - 1)}
                                     >
@@ -266,9 +266,9 @@ const ManageVoters = () => {
                                     <div className="flex items-center px-4 text-sm font-medium border rounded-md bg-muted/10">
                                         Page {pagination.page} of {pagination.totalPages}
                                     </div>
-                                    <Button 
-                                        variant="outline" 
-                                        size="sm" 
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         disabled={pagination.page === pagination.totalPages}
                                         onClick={() => fetchVoters(pagination.page + 1)}
                                     >
@@ -282,9 +282,9 @@ const ManageVoters = () => {
             </div>
 
             {/* Modals & Dialogs */}
-            <EditVoterModal 
-                open={isEditModalOpen} 
-                onClose={() => setIsEditModalOpen(false)} 
+            <EditVoterModal
+                open={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
                 voter={editingVoter}
                 constituencies={constituencies}
                 onSuccess={() => fetchVoters(pagination.page)}
@@ -301,8 +301,8 @@ const ManageVoters = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                            onClick={handleDelete} 
+                        <AlertDialogAction
+                            onClick={handleDelete}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                             Delete Voter

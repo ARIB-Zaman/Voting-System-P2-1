@@ -37,6 +37,7 @@ import L from 'leaflet';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { apiFetch } from '@/lib/auth-client';
 const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -46,7 +47,7 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const DEFAULT_CENTER: [number, number] = [23.6850, 90.3563]; // Bangladesh
 
 // --- Map Helpers ---
@@ -103,7 +104,7 @@ export default function ManageConstituencies() {
   // --------------------------------------------------------------------------
   const fetchConstituencies = async () => {
     try {
-      const res = await fetch(`${API}/constituency`);
+      const res = await apiFetch(`${API}/constituency`);
       const data = await res.json();
       setConstituencies(data);
     } catch (err) {
@@ -168,7 +169,7 @@ export default function ManageConstituencies() {
 
     setEditSubmitting(true);
     try {
-      const res = await fetch(`${API}/constituency/${editForm.id}`, {
+      const res = await apiFetch(`${API}/constituency/${editForm.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -202,7 +203,7 @@ export default function ManageConstituencies() {
   const executeDelete = async () => {
     if (!deleteId) return;
     try {
-      const res = await fetch(`${API}/constituency/${deleteId}`, {
+      const res = await apiFetch(`${API}/constituency/${deleteId}`, {
         method: 'DELETE',
       });
       const data = await res.json();

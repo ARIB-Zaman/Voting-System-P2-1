@@ -4,7 +4,7 @@ const pool = require("../db");
 const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 // GET all constituencies
 router.get("/",
-      requireAuth, // first, verify JWT and attach req.user
+      requireAuth, requireRole("ADMIN"), // first, verify JWT and attach req.user
     async (req, res, next) => {
         // 1️⃣ Admin bypass
         if (req.user.role === "ADMIN") return next();
@@ -71,7 +71,7 @@ router.get("/:constituencyId/polling_centers/unassigned/:electionId",
 // ── ADMIN CONSTITUENCY OPERATIONS ─────────────────────────────────────────
 
 // POST /api/constituency (Add single constituency)
-router.post("/", async (req, res) => {
+router.post("/", requireAuth,requireRole("ADMIN"), async (req, res) => {
   const { name, region, lat, lng } = req.body;
   if (!name || !region) {
     return res.status(400).json({ error: "name and region are required" });
@@ -95,7 +95,7 @@ router.post("/", async (req, res) => {
 });
 
 // POST /api/constituency/bulk (Bulk upload constituencies)
-router.post("/bulk", async (req, res) => {
+router.post("/bulk",requireAuth,requireRole("ADMIN"), async (req, res) => {
   const { constituencies } = req.body;
   
   if (!Array.isArray(constituencies) || constituencies.length === 0) {
@@ -161,7 +161,7 @@ router.post("/bulk", async (req, res) => {
 });
 
 // PUT /api/constituency/:id (Edit a constituency)
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAuth,requireRole("ADMIN"), async (req, res) => {
   const { id } = req.params;
   const { name, region, lat, lng } = req.body;
   
@@ -190,7 +190,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/constituency/:id (Delete a constituency)
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth,requireRole("ADMIN"), async (req, res) => {
   const { id } = req.params;
   try {
     // Check references in polling_center

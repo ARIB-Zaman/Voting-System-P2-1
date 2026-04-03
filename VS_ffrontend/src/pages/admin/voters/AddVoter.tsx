@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { ListView } from '@/components/refine-ui/views/list-view';
 import { Breadcrumb } from '@/components/refine-ui/layout/breadcrumb';
+import { apiFetch } from '@/lib/auth-client';
 
 interface Constituency {
     id: number;
@@ -29,7 +30,7 @@ const AddVoter = () => {
     });
 
     useEffect(() => {
-        fetch('http://localhost:3001/api/constituency')
+        apiFetch('/api/constituency')
             .then(res => res.json())
             .then(data => setConstituencies(data))
             .catch(err => console.error("Error fetching constituencies:", err));
@@ -48,7 +49,7 @@ const AddVoter = () => {
         setLoading(true);
 
         try {
-            const res = await fetch('http://localhost:3001/api/voters/add-voter', {
+            const res = await apiFetch('/api/voters/add-voter', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form)

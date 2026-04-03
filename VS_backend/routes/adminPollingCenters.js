@@ -8,7 +8,7 @@ const { requireAuth, requireRole, requireElectionRole } = require("../middleware
  * Returns all polling centers with constituency name.
  * Optional query: ?constituency_id=1&q=search_term
  */
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { constituency_id, q = '' } = req.query;
   try {
     const conditions = [];
@@ -56,7 +56,7 @@ router.get('/', async (req, res) => {
  * Create a new polling center.
  * Body: { name, address, constituency_id, lat, lng }
  */
-router.post('/', async (req, res) => {
+router.post('/',requireAuth,requireRole("ADMIN"), async (req, res) => {
   const { name, address, constituency_id, lat, lng } = req.body;
 
   if (!name || !address || !constituency_id) {
@@ -92,7 +92,7 @@ router.post('/', async (req, res) => {
  * Bulk create polling centers from CSV upload.
  * Body: { centers: [{ name, address, constituency_id, lat, lng }] }
  */
-router.post('/bulk', async (req, res) => {
+router.post('/bulk',requireAuth,requireRole("ADMIN"), async (req, res) => {
   const { centers } = req.body;
   
   if (!Array.isArray(centers) || centers.length === 0) {
@@ -186,7 +186,7 @@ router.post('/bulk', async (req, res) => {
  * Update a polling center.
  * Body: { name, address, constituency_id, lat, lng }
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth,requireRole("ADMIN"), async (req, res) => {
   const { id } = req.params;
   const { name, address, constituency_id, lat, lng } = req.body;
 
@@ -228,7 +228,7 @@ router.put('/:id', async (req, res) => {
  * Delete a polling center.
  * Blocked if the center is referenced in polling_center_of_election.
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id',requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { id } = req.params;
   try {
     // Check if the center is assigned to any election

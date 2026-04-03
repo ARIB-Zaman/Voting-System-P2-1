@@ -19,6 +19,7 @@ import L from 'leaflet';
 // Fix for default Leaflet marker icons in React
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { apiFetch } from '@/lib/auth-client';
 const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -27,7 +28,7 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const DEFAULT_CENTER: [number, number] = [23.6850, 90.3563]; // Bangladesh center
 
 interface Constituency {
@@ -77,7 +78,7 @@ export default function AddPollingCenter() {
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/constituency`)
+    apiFetch(`${API}/constituency`)
       .then((r) => r.json())
       .then((data) => setConstituencies(data))
       .catch((err) => {
@@ -152,7 +153,7 @@ export default function AddPollingCenter() {
     setSubmitting(true);
 
     try {
-      const res = await fetch(`${API}/admin-polling-centers`, {
+      const res = await apiFetch(`${API}/admin-polling-centers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

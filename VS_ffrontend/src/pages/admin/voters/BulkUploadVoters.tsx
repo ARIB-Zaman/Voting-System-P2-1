@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { ListView } from '@/components/refine-ui/views/list-view';
 import { Breadcrumb } from '@/components/refine-ui/layout/breadcrumb';
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 interface UploadSummary {
     total: number;
@@ -68,7 +69,7 @@ const BulkUploadVoters = () => {
             }
 
             try {
-                const res = await fetch('http://localhost:3001/api/voters/bulk-upload-voters', {
+                const res = await apiFetch('/api/voters/bulk-upload-voters', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ voters })
