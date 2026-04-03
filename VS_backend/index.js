@@ -36,6 +36,8 @@ app.use("/api/voter-allocation", require("./routes/voterAllocation"));
 app.use("/api/voters", require("./routes/voters"));
 app.use("/api/admin-polling-centers", require("./routes/adminPollingCenters"));
 app.use("/api/kiosk", require("./routes/kiosk"));
+app.use("/api/voter", require("./routes/voterDashboard"));
+app.use("/api/voter-portal", require("./routes/voterPortal"));
 
 // ── Sign-up (public) & Admin approval ────────────────────────────────────────
 app.use("/api/signup", require("./routes/signup"));

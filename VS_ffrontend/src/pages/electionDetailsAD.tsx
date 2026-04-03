@@ -235,6 +235,7 @@ const ElectionDetailsAD: React.FC = () => {
   // ── Voters Management state ──────────────────────────────────────────────
   const [assignedVoters, setAssignedVoters] = useState<any[]>([]);
   const [assignedVoterSearch, setAssignedVoterSearch] = useState('');
+  const [assignedConstituencyFilter, setAssignedConstituencyFilter] = useState<string>('all');
   const [removingVoterNid, setRemovingVoterNid] = useState<string | null>(null);
 
   // ── Add Voters Dialog state ──────────────────────────────────────────────
@@ -318,6 +319,7 @@ const ElectionDetailsAD: React.FC = () => {
         election_id: id,
         constituency_id: constituencyId,
         q: search,
+        not_in_election: 'true',
         limit: '200',
       });
       const res = await apiFetch(`${API}/voter-allocation/search?${params}`);
@@ -1037,8 +1039,23 @@ const ElectionDetailsAD: React.FC = () => {
                 {assignedVoters.length}
               </Badge>
             </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              {/* Constituency filter */}
+              <Select value={assignedConstituencyFilter} onValueChange={setAssignedConstituencyFilter}>
+                <SelectTrigger className="h-9 sm:w-48 text-xs">
+                  <SelectValue placeholder="All Constituencies" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Constituencies</SelectItem>
+                  {constituencies.map((c) => (
+                    <SelectItem key={c.constituency_id} value={c.constituency_id.toString()}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Name / NID search */}
+              <div className="relative flex-1 sm:w-56">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name or NID..."
@@ -1064,27 +1081,33 @@ const ElectionDetailsAD: React.FC = () => {
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">NID</TableHead>
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Name</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Constituency</TableHead>
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Type</TableHead>
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(() => {
-                  const filteredAssignedVoters = assignedVoters.filter(v => 
-                    v.name.toLowerCase().includes(assignedVoterSearch.toLowerCase()) || 
-                    v.nid.toString().toLowerCase().includes(assignedVoterSearch.toLowerCase())
-                  );
+                  const filteredAssignedVoters = assignedVoters.filter(v => {
+                    const matchesSearch =
+                      v.name.toLowerCase().includes(assignedVoterSearch.toLowerCase()) ||
+                      v.nid.toString().toLowerCase().includes(assignedVoterSearch.toLowerCase());
+                    const matchesConstituency =
+                      assignedConstituencyFilter === 'all' ||
+                      v.constituency_id?.toString() === assignedConstituencyFilter;
+                    return matchesSearch && matchesConstituency;
+                  });
 
                   return filteredAssignedVoters.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-14 text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center py-14 text-muted-foreground">
                         <div className="flex flex-col items-center gap-2">
                           <Users className="h-8 w-8 opacity-30" />
                           <p className="font-medium">
                             {assignedVoters.length === 0 ? "No voters assigned yet" : "No voters match your search"}
                           </p>
                           <p className="text-xs">
-                            {assignedVoters.length === 0 ? "Click \"Add Voters\" to get started." : "Try adjusting your search query."}
+                            {assignedVoters.length === 0 ? "Click \"Add Voters\" to get started." : "Try adjusting your search or constituency filter."}
                           </p>
                         </div>
                       </TableCell>
@@ -1094,6 +1117,16 @@ const ElectionDetailsAD: React.FC = () => {
                       <TableRow key={v.nid} className="hover:bg-muted/40 transition-colors">
                       <TableCell className="px-6 py-3 font-mono text-xs">{v.nid}</TableCell>
                       <TableCell className="px-6 py-3 font-medium">{v.name}</TableCell>
+                      <TableCell className="px-6 py-3">
+                        {v.constituency_name ? (
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[140px]" title={v.constituency_name}>{v.constituency_name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="px-6 py-3">
                         <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-tight">
                           {v.voter_type}
@@ -1144,10 +1177,19 @@ const ElectionDetailsAD: React.FC = () => {
             </Table>
           </div>
           {assignedVoters.length > 0 && (
-            <div className="px-6 py-3 bg-muted/30 border-t">
+            <div className="px-6 py-3 bg-muted/30 border-t flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {assignedVoters.length} voter(s) assigned to this election
               </p>
+              {assignedConstituencyFilter !== 'all' && (
+                <button
+                  onClick={() => setAssignedConstituencyFilter('all')}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <X className="h-3 w-3" />
+                  Clear filter
+                </button>
+              )}
             </div>
           )}
         </div>

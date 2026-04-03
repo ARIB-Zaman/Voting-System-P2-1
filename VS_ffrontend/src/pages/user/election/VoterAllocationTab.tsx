@@ -147,11 +147,11 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
     try {
       const res = await apiFetch(`${API}/voter-allocation/${voeId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
-      toast.success('Voter removed from center');
+      toast.success('Voter unassigned from center');
       fetchAllocatedVoters(centerId);
       onAllocationChanged();
     } catch {
-      toast.error('Failed to remove voter');
+      toast.error('Failed to unassign voter');
     } finally {
       setRemovingVoeId(null);
     }
@@ -163,11 +163,11 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
       const res = await apiFetch(`${API}/voter-allocation/center/${centerId}/election/${electionId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      toast.success(data.message || 'All voters removed');
+      toast.success(data.message || 'All voters unassigned');
       fetchAllocatedVoters(centerId);
       onAllocationChanged();
     } catch {
-      toast.error('Failed to remove all voters');
+      toast.error('Failed to unassign all voters');
     } finally {
       setRemovingAllCenterId(null);
     }
@@ -198,7 +198,7 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
       } finally {
         setSearching(false);
       }
-    }, 400);
+    }, searchQuery ? 400 : 0); // immediate on open, debounced on typing
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery, manualDialogOpen, constituencyId, electionId]);
@@ -458,7 +458,8 @@ const VoterAllocationTab: React.FC<VoterAllocationTabProps> = ({
             ) : searchResults.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="font-medium">{searchQuery ? 'No unallocated voters match search' : 'Start typing to search'}</p>
+                <p className="font-medium">{searchQuery ? 'No unallocated voters match your search' : 'No unassigned voters in this constituency'}</p>
+                <p className="text-xs mt-1">{searchQuery ? 'Try a different name, NID, or phone number.' : 'All voters may already be assigned to a center.'}</p>
               </div>
             ) : (
               <div className="divide-y space-y-1 py-1">

@@ -12,6 +12,7 @@ import {
   useActiveAuthProvider,
   useGetIdentity,
   useLogout,
+  useLink,
 } from "@refinedev/core";
 import { LogOutIcon, Origami } from "lucide-react";
 
@@ -62,6 +63,7 @@ function MobileHeader() {
 
   const title = { icon: <Origami />, text: roleLabel }
 
+  const Link = useLink();
   return (
     <header
       className={cn(
@@ -89,7 +91,8 @@ function MobileHeader() {
         })}
       />
 
-      <div
+      <Link
+        to={identity?.role === 'USER' ? '/homeUSER' : '/homeAdmin'}
         className={cn(
           "whitespace-nowrap",
           "flex",
@@ -98,15 +101,16 @@ function MobileHeader() {
           "items-center",
           "justify-start",
           "gap-2",
-          "transition-discrete",
+          "transition-all",
           "duration-200",
+          "hover:opacity-80",
           {
             "pl-3": !open,
             "pl-5": open,
           }
         )}
       >
-        <div>{title.icon}</div>
+        <div className="text-primary">{title.icon}</div>
         <h2
           className={cn(
             "text-sm",
@@ -121,7 +125,7 @@ function MobileHeader() {
         >
           {title.text}
         </h2>
-      </div>
+      </Link>
 
       <ThemeToggle className={cn("h-8", "w-8")} />
     </header>

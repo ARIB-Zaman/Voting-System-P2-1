@@ -46,22 +46,79 @@ router.get("/search",
   }
   try {
     const search = `%${q}%`;
-    const result = await pool.query(
-      `SELECT v.nid, v.name, v.phone, v.voter_type
-       FROM voter v
-       WHERE v.constituency_id = $1
-         AND (v.name ILIKE $2 OR v.phone ILIKE $2 OR v.nid::text ILIKE $2)
-         AND v.nid NOT IN (
-           SELECT nid FROM voter_of_election WHERE election_id = $3
-         )
-       ORDER BY v.name ASC
-       LIMIT $4`,
-      [constituency_id, search, election_id, parseInt(limit)]
-    );
+    let query;
+    let params;
+
+    if (not_in_election === 'true') {
+      // MODE 1: Show voters in master list who are NOT yet in this election
+      query = `
+        SELECT v.nid, v.name, v.phone, v.voter_type
+        FROM voter v
+        WHERE v.constituency_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM voter_of_election voe 
+            WHERE voe.nid = v.nid AND voe.election_id = $2::integer
+          )
+          AND (v.name ILIKE $3 OR v.phone ILIKE $3 OR v.nid::text ILIKE $3)
+        ORDER BY v.name ASC
+        LIMIT $4`;
+    } else {
+      // MODE 2: Show voters already in the election master list (voter_of_election)
+      // but NOT yet assigned to any polling center (center_id IS NULL).
+      query = `
+        SELECT v.nid, v.name, v.phone, v.voter_type
+        FROM voter v
+        JOIN voter_of_election voe ON voe.nid = v.nid
+        WHERE v.constituency_id = $1
+          AND voe.election_id = $2::integer
+          AND voe.center_id IS NULL
+          AND (v.name ILIKE $3 OR v.phone ILIKE $3 OR v.nid::text ILIKE $3)
+        ORDER BY v.name ASC
+        LIMIT $4`;
+    }
+
+    params = [constituency_id, election_id, search, parseInt(limit)];
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/voter-allocation/manual
+ * Manually assign selected voters (by NID) to a polling center.
+ * Voters must already be in voter_of_election with center_id = NULL.
+ * Body: { nids: string[], center_id, election_id }
+ */
+router.post("/manual", async (req, res) => {
+  const { nids, center_id, election_id } = req.body;
+  if (!Array.isArray(nids) || nids.length === 0 || !center_id || !election_id) {
+    return res.status(400).json({ error: "nids (array), center_id, and election_id are required" });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const now = new Date().toISOString();
+    let allocated = 0;
+    for (const nid of nids) {
+      const result = await client.query(
+        `UPDATE voter_of_election
+         SET center_id = $1, assigned_at = $2
+         WHERE nid = $3 AND election_id = $4::integer AND center_id IS NULL`,
+        [center_id, now, nid, election_id]
+      );
+      if (result.rowCount > 0) allocated++;
+    }
+    await client.query("COMMIT");
+    res.json({ allocated, message: `${allocated} voter(s) assigned to center` });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
 
@@ -80,10 +137,15 @@ router.post("/auto",requireAuth, async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Cast all params explicitly — pg sends JS values as text by default
+    const centerIdInt = parseInt(center_id);
+    const electionIdInt = parseInt(election_id);
+    const countInt = parseInt(count);
+
     // Call the DB function to get closest unallocated voters
     const votersResult = await client.query(
-      `SELECT nid FROM get_closest_unallocated_voters($1, $2, $3)`,
-      [center_id, election_id, parseInt(count)]
+      `SELECT nid FROM get_closest_unallocated_voters($1::integer, $2::integer, $3::integer)`,
+      [centerIdInt, electionIdInt, countInt]
     );
 
     if (votersResult.rows.length === 0) {
@@ -94,13 +156,15 @@ router.post("/auto",requireAuth, async (req, res) => {
     const now = new Date().toISOString();
     let allocated = 0;
     for (const row of votersResult.rows) {
-      await client.query(
-        `INSERT INTO voter_of_election (nid, election_id, center_id, assigned_by, assigned_at)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (nid, election_id) DO NOTHING`,
-        [row.nid, election_id, center_id, assigned_by ?? null, now]
+      const updateResult = await client.query(
+        `UPDATE voter_of_election
+         SET center_id = $1::integer, assigned_by = $2, assigned_at = $3
+         WHERE nid = $4
+         AND election_id = $5::integer
+         AND center_id IS NULL`,
+        [centerIdInt, assigned_by ?? null, now, row.nid, electionIdInt]
       );
-      allocated++;
+      if (updateResult.rowCount > 0) allocated++;
     }
 
     await client.query("COMMIT");
@@ -117,17 +181,20 @@ router.post("/auto",requireAuth, async (req, res) => {
 // (POST /manual was here, now replaced by /add below or moved)
 
 /**
- * DELETE /api/voter-allocation/center/:centerId/election/:electionId
- * Remove all voters allocated to a specific polling center for an election.
+ * PUT /api/voter-allocation/center/:centerId/election/:electionId/unassign-all
+ * Unassign all voters from a polling center (set center_id = NULL, booth_id = NULL),
+ * keeping them in the election master list so they can be reassigned.
  */
 router.delete("/center/:centerId/election/:electionId", requireAuth, async (req, res) => {
   const { centerId, electionId } = req.params;
   try {
     const result = await pool.query(
-      "DELETE FROM voter_of_election WHERE center_id = $1 AND election_id = $2 RETURNING id",
+      `UPDATE voter_of_election
+       SET center_id = NULL, booth_id = NULL, assigned_at = NULL
+       WHERE center_id = $1 AND election_id = $2`,
       [centerId, electionId]
     );
-    res.json({ message: `Removed ${result.rowCount} voter(s)`, removed: result.rowCount });
+    res.json({ message: `Unassigned ${result.rowCount} voter(s) from center`, removed: result.rowCount });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -191,8 +258,9 @@ router.delete("/remove",
 });
 
 /**
- * DELETE /api/voter-allocation/:voeId
- * Remove a single voter allocation by its numeric ID.
+ * PUT /api/voter-allocation/:voeId/unassign
+ * Unassign a single voter from their polling center (set center_id = NULL, booth_id = NULL),
+ * keeping them in the election master list so they can be reassigned.
  */
 router.delete("/:voeId",requireAuth, async (req, res) => {
   const { voeId } = req.params;
@@ -201,13 +269,16 @@ router.delete("/:voeId",requireAuth, async (req, res) => {
   }
   try {
     const result = await pool.query(
-      "DELETE FROM voter_of_election WHERE id = $1 RETURNING id",
+      `UPDATE voter_of_election
+       SET center_id = NULL, booth_id = NULL, assigned_at = NULL
+       WHERE id = $1
+       RETURNING id`,
       [voeId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Allocation not found" });
     }
-    res.json({ message: "Voter deallocated" });
+    res.json({ message: "Voter unassigned from center" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -263,7 +334,7 @@ router.post("/:voeId/generate-otp",requireAuth, async (req, res) => {
     );
     const otp = result.rows[0]?.otp;
     if (otp === null || otp === undefined) {
-      return res.status(404).json({ error: "Voter allocation not found or OTP generation failed" });
+      return res.status(404).json({ error: "OTP generation request failed" });
     }
     res.json({ otp });
   } catch (err) {
@@ -379,9 +450,11 @@ router.get("/election/:electionId",
          v.phone,
          v.voter_type,
          v.constituency_id,
+         c.name AS constituency_name,
          voe.assigned_at
        FROM voter_of_election voe
        JOIN voter v ON v.nid = voe.nid
+       LEFT JOIN constituency c ON c.id = v.constituency_id
        WHERE voe.election_id = $1
        ORDER BY v.name ASC`,
       [electionId]
@@ -416,7 +489,7 @@ router.post("/add",
     // 🔥 Get a valid ADMIN user ID for assigned_by
     const adminResult = await pool.query('SELECT id FROM "users" WHERE role = \'ADMIN\' LIMIT 1');
     if (adminResult.rows.length === 0) {
-       return res.status(500).json({ error: "No admin user found to perform assignment" });
+      return res.status(500).json({ error: "No admin user found to perform assignment" });
     }
     const adminId = adminResult.rows[0].id;
 

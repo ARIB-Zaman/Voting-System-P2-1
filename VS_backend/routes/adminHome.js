@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { createAuditLog } = require("../src/utils/logger");
 const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 
 // GET all elections
@@ -43,6 +44,8 @@ router.post("/",
              RETURNING *`,
             [name, start_date, end_date, status]
         );
+
+        await createAuditLog(req.user?.id || 'system', 'CREATE', 'election', result.rows[0].election_id, { name, status });
 
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -138,6 +141,7 @@ router.delete("/:id",
             return res.status(404).json({ error: "Election not found" });
         }
 
+        await createAuditLog(req.user?.id || 'system', 'DELETE', 'election', id, { name: result.rows[0].name });
         await client.query("COMMIT");
         res.json({ message: "Election deleted", election: result.rows[0] });
     } catch (err) {

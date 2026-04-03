@@ -45,6 +45,10 @@ import KioskConstituencies from './pages/kiosk/KioskConstituencies';
 import KioskPollingCenters from './pages/kiosk/KioskPollingCenters';
 import KioskBooths from './pages/kiosk/KioskBooths';
 import KioskVoting from './pages/kiosk/KioskVoting';
+import VoterDashboard from './pages/user/election/VoterDashboard';
+import VoterPortalLayout from './pages/user/portal/VoterPortalLayout';
+import VoterPortalLogin from './pages/user/portal/VoterPortalLogin';
+import VoterPortalDashboard from './pages/user/portal/VoterPortalDashboard';
 
 // ── Helper: map role → home path ───────────────────────────────────────────────
 function homePathForRole(role?: string): string {
@@ -198,9 +202,14 @@ function App() {
                 },
                 // ── USER resources ────────────────────────────────────────────
                 {
+                  name: 'voter-dashboard',
+                  list: '/homeUSER/voter-dashboard',
+                  meta: { label: 'Voter Dashboard', icon: <Earth />, role: 'USER', hideInOfficerMode: true },
+                },
+                {
                   name: 'user-dashboard',
                   list: '/homeUSER',
-                  meta: { label: 'Dashboard', icon: <Shield />, role: 'USER' },
+                  meta: { label: 'Officer Dashboard', icon: <Shield />, role: 'USER' },
                 },
               ]}
             >
@@ -217,6 +226,12 @@ function App() {
                   <Route path="/kiosk/election/:electionId/constituency/:constituencyId" element={<KioskPollingCenters />} />
                   <Route path="/kiosk/election/:electionId/constituency/:constituencyId/center/:centerId" element={<KioskBooths />} />
                   <Route path="/kiosk/election/:electionId/constituency/:constituencyId/center/:centerId/booth/:boothId/vote" element={<KioskVoting />} />
+                </Route>
+
+                {/* ── Voter Portal routes (Public, NID-based) ─────────── */}
+                <Route element={<VoterPortalLayout />}>
+                  <Route path="/voter-portal" element={<VoterPortalLogin />} />
+                  <Route path="/voter-portal/dashboard" element={<VoterPortalDashboard />} />
                 </Route>
 
                 {/* ── Protected routes (all share the same Layout/sidebar) ── */}
@@ -268,6 +283,7 @@ function App() {
                     <Route path="/homeUSER">
                       <Route index element={<UserDashboard />} />
                       <Route path="election/:id" element={<ElectionEntry />} />
+                      <Route path="voter-dashboard" element={<VoterDashboard />} />
                     </Route>
                   </Route>
 

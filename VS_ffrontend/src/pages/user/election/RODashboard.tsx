@@ -359,6 +359,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
       const res = await apiFetch(`${API}/polling_center_of_election`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ election_id: electionId, polling_center_ids: Array.from(selectedCenterIds) }),
       });
       if (!res.ok) throw new Error();
@@ -379,6 +380,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
       const res = await apiFetch(`${API}/polling_center_of_election/${editingPoeId}/pro`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ pro_id: editProId }),
       });
       if (!res.ok) throw new Error();
@@ -419,6 +421,7 @@ const RODashboard: React.FC<RODashboardProps> = ({
       const res = await apiFetch(`${API}/candidate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name: candName.trim(), party: candParty.trim(), constituency_of_election_id: coeId }),
       });
       if (!res.ok) throw new Error();

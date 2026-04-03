@@ -196,17 +196,17 @@ router.post("/:boothId/officer",
     }
     const { election_id } = booth.rows[0];
 
-    // Check if this user is already assigned to this booth
-    const dup = await pool.query(
-      `SELECT 1 FROM role_map
-       WHERE relation_id = $1 AND role = 'PO' AND user_id = $2
-       LIMIT 1`,
-      [boothId, user_id]
+    // Conflict check: user already has ANY role in this election?
+    const conflict = await pool.query(
+      "SELECT role FROM role_map WHERE election_id = $1 AND user_id = $2",
+      [election_id, user_id]
     );
-    if (dup.rows.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "This officer is already assigned to this booth" });
+    if (conflict.rows.length > 0) {
+      const roleNames = { 'RO': 'Returning Officer', 'PRO': 'Presiding Officer', 'PO': 'Polling Officer' };
+      const roleName = roleNames[conflict.rows[0].role] || conflict.rows[0].role;
+      return res.status(400).json({
+        error: `User is already assigned as ${roleName} in this election.`
+      });
     }
 
     const result = await pool.query(

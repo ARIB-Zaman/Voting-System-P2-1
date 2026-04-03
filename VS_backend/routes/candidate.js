@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { createAuditLog } = require("../src/utils/logger");
+
 const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 /**
  * GET /api/candidate/coe/:coeId
@@ -65,6 +67,7 @@ router.post("/",
        RETURNING candidate_id, name, party, nomination_status`,
       [name, party, constituency_of_election_id]
     );
+    await createAuditLog(req.user.id, 'CREATE', 'candidate', result.rows[0].candidate_id, `Added candidate: ${result.rows[0].name}`);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
@@ -118,6 +121,7 @@ router.delete("/:id",
   async (req, res) => {
   const { id } = req.params;
   try {
+    await createAuditLog(req.user.id, 'DELETE', 'candidate', id, `Removed candidate ID: ${id}`);
     const result = await pool.query(
       "DELETE FROM candidate WHERE candidate_id = $1 RETURNING candidate_id",
       [id]

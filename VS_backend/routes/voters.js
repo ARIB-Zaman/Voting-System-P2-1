@@ -126,21 +126,26 @@ router.post("/bulk-upload-voters", async (req, res) => {
  */
 router.get("/", async (req, res) => {
     try {
-        const { search, constituency_id, page = 1, limit = 10 } = req.query;
+        const { search, constituency_id, election_id, page = 1, limit = 10 } = req.query;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const offset = (pageNum - 1) * limitNum;
 
-        let baseQuery = "FROM voter WHERE 1=1";
+        let baseQuery = "FROM voter v WHERE 1=1";
         const params = [];
 
+        if (election_id && election_id !== 'all') {
+            baseQuery = "FROM voter v JOIN voter_of_election voe ON v.nid = voe.nid WHERE voe.election_id = $" + (params.length + 1);
+            params.push(election_id);
+        }
+
         if (search) {
-            baseQuery += ` AND (name ILIKE $${params.length + 1} OR nid::text ILIKE $${params.length + 1})`;
+            baseQuery += ` AND (v.name ILIKE $${params.length + 1} OR v.nid::text ILIKE $${params.length + 1})`;
             params.push(`%${search}%`);
         }
 
         if (constituency_id && constituency_id !== 'all') {
-            baseQuery += ` AND constituency_id = $${params.length + 1}`;
+            baseQuery += ` AND v.constituency_id = $${params.length + 1}`;
             params.push(constituency_id);
         }
 
@@ -148,7 +153,7 @@ router.get("/", async (req, res) => {
         const total = parseInt(countRes.rows[0].total || 0);
 
         const dataRes = await pool.query(
-            `SELECT * ${baseQuery} ORDER BY name ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+            `SELECT v.* ${baseQuery} ORDER BY v.name ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
             [...params, limitNum, offset]
         );
 
