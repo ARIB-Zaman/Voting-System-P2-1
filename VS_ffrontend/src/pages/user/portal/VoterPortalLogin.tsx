@@ -35,6 +35,9 @@ const VoterPortalLogin: React.FC = () => {
         const data = await res.json();
         sessionStorage.setItem('voterNid', nid.trim());
         sessionStorage.setItem('voterName', data.name);
+        if (data.constituency_id) {
+          sessionStorage.setItem('voterConstituencyId', String(data.constituency_id));
+        }
         toast.success('Access granted to Voter Portal');
         navigate('/voter-portal/dashboard');
       } else {
@@ -49,7 +52,7 @@ const VoterPortalLogin: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6 bg-neutral-100/50 dark:bg-neutral-950/20">
+    <div className="flex-1 flex items-center justify-center p-6 bg-muted/30">
       <Card className="w-full max-w-md border-none shadow-premium-lg overflow-hidden animate-in fade-in zoom-in-95 duration-500">
         <div className="h-2 bg-primary w-full" />
         <CardHeader className="text-center pt-8">

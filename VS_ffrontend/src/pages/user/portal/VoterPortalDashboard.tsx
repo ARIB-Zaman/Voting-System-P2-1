@@ -1,77 +1,47 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Vote,
-  MapPin,
-  Calendar,
-  Clock,
-  User,
-  CheckCircle2,
-  XCircle,
-  BarChart3,
-  Search,
-  ExternalLink,
-  Info,
-  ChevronRight,
-  ShieldCheck,
-  Globe,
-  Printer,
+  Vote, MapPin, Calendar, User, CheckCircle2, XCircle,
+  Search, ExternalLink, ShieldCheck, Globe, Printer, Copy,
+  Users, TrendingUp, Medal, Trophy, BarChart3, Info,
 } from 'lucide-react';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip as RechartsTooltip,
-  Legend,
+  ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig,
+} from '@/components/ui/chart';
+import {
+  Bar, BarChart, CartesianGrid, Cell, LabelList,
+  Pie, PieChart, Label, Sector, XAxis, YAxis,
 } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 
-// --- Types ---
+// recharts omits `activeIndex` from its Pie types even though it's a valid runtime prop
+const PieWithActiveIndex = Pie as any;
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 interface Election {
   election_id: string | number;
   name: string;
   start_date: string;
   end_date: string;
-  status: 'PLANNED' | 'LIVE' | 'FINALIZED' | 'COMPLETED';
+  status: 'PLANNED' | 'LIVE' | 'FINALIZED' | 'COMPLETED' | 'CLOSED';
 }
 
 interface VoterDetails {
   nid: string;
   voter_name: string;
   constituency_name: string;
+  constituency_id: number;
   center_name: string;
   center_address: string;
   lat: number;
@@ -80,131 +50,361 @@ interface VoterDetails {
   has_voted: boolean;
 }
 
-interface ResultSummary {
-  total_assigned: number;
-  votes_cast: number;
-}
-
 interface CandidateResult {
+  rank: number;
   name: string;
   party: string;
   votes: number;
+  percentage: number;
 }
 
-interface ElectionStats {
+interface ResultsSummary {
+  total_voters: number;
+  votes_cast: number;
+  turnout: number;
+}
+
+interface ConstituencyResults {
   constituency_name: string;
-  summary: ResultSummary;
+  summary: ResultsSummary;
   candidates: CandidateResult[];
 }
 
-const COLORS = ['#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1'];
+interface PartySeat { party_name: string; seat_count: number; }
+
+interface OverallResults {
+  summary: ResultsSummary;
+  party_seats: PartySeat[];
+  parties: CandidateResult[];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const API = 'http://localhost:3001/api/voter-portal';
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+
+const PALETTE = [
+  'var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)',
+  'var(--chart-4)', 'var(--chart-5)',
+  '#a855f7', '#ec4899', '#f97316', '#14b8a6',
+];
+
+const statusConfig: Record<string, { label: string; className: string }> = {
+  LIVE:      { label: 'Active',     className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 uppercase tracking-tight' },
+  PLANNED:   { label: 'Scheduled',  className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 uppercase tracking-tight' },
+  CLOSED:    { label: 'Completed',  className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 uppercase tracking-tight' },
+  FINALIZED: { label: 'Finalized',  className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 uppercase tracking-tight' },
+};
+
+// ── Summary Card ──────────────────────────────────────────────────────────────
+
+const SummaryCard = ({
+  icon: Icon, label, value, color,
+}: { icon: React.ElementType; label: string; value: string | number; color: string }) => (
+  <div className="bg-card border rounded-xl p-6 flex items-center gap-4 shadow-sm">
+    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}>
+      <Icon className="h-5 w-5" />
+    </div>
+    <div>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  </div>
+);
+
+// ── Results Section (shared by constituency & overall) ────────────────────────
+
+const ResultsSection = ({
+  summary, candidates, title, chartId,
+}: {
+  summary: ResultsSummary;
+  candidates: CandidateResult[];
+  title: string;
+  chartId: string;
+}) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const pieKeys = candidates.map((_, i) => `c${i}`);
+  const pieData = candidates.map((c, i) => ({
+    key: pieKeys[i], label: c.name, seats: c.votes,
+    fill: `var(--color-c${i})`,
+  }));
+  const pieConfig = useMemo<ChartConfig>(() => {
+    const cfg: ChartConfig = { seats: { label: 'Votes' } };
+    candidates.forEach((c, i) => { cfg[`c${i}`] = { label: c.name, color: PALETTE[i % PALETTE.length] }; });
+    return cfg;
+  }, [candidates]);
+
+  const barData = candidates.map(c => ({ candidate: c.name, votes: c.votes, party: c.party }));
+  const barConfig: ChartConfig = { votes: { label: 'Votes', color: PALETTE[0] } };
+
+  const renderActiveShape = useCallback(({ outerRadius = 0, innerRadius = 0, ...props }: any) => (
+    <Sector {...props} outerRadius={(outerRadius as number) + 12} innerRadius={innerRadius} />
+  ), []);
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{title}</p>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <SummaryCard icon={Users} label="Registered Voters" value={summary.total_voters.toLocaleString()} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
+        <SummaryCard icon={Vote} label="Votes Cast" value={summary.votes_cast.toLocaleString()} color="bg-violet-100 text-violet-600 dark:bg-violet-900/30" />
+        <SummaryCard icon={TrendingUp} label="Turnout" value={`${summary.turnout}%`} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Pie Chart */}
+        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b bg-muted/30">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Vote Share</h3>
+          </div>
+          <div className="p-6">
+            {candidates.length > 0 ? (
+              <ChartContainer id={chartId} config={pieConfig} className="mx-auto aspect-square w-full max-w-[280px]">
+                <PieChart>
+                  <ChartTooltip cursor={false} content={
+                    <ChartTooltipContent hideLabel formatter={(value, name) => {
+                      const e = pieData.find(d => d.key === name);
+                      return <span className="font-bold">{e?.label ?? name}: {Number(value).toLocaleString()} votes</span>;
+                    }} />
+                  } />
+                  <PieWithActiveIndex data={pieData} dataKey="seats" nameKey="key"
+                    innerRadius={60} strokeWidth={5}
+                    activeIndex={activeIndex}
+                    activeShape={renderActiveShape}
+                    onClick={(_d: any, idx: number) => setActiveIndex(idx)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <Label content={({ viewBox }) => {
+                      if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
+                        const active = pieData[activeIndex];
+                        return (
+                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
+                              {active?.seats?.toLocaleString() ?? 0}
+                            </tspan>
+                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 22} className="fill-muted-foreground text-xs">votes</tspan>
+                          </text>
+                        );
+                      }
+                    }} />
+                  </PieWithActiveIndex>
+                </PieChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-center py-12 text-sm text-muted-foreground">No data available</p>
+            )}
+          </div>
+          {candidates.length > 0 && (
+            <div className="px-6 pb-5 flex flex-wrap gap-3">
+              {candidates.map((c, i) => (
+                <button key={i} onClick={() => setActiveIndex(i)}
+                  className={`flex items-center gap-2 text-xs rounded-md px-2 py-1 transition-all border ${activeIndex === i ? 'border-border bg-muted/60' : 'border-transparent hover:bg-muted/40'}`}>
+                  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
+                  <span className="font-medium">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bar Chart */}
+        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b bg-muted/30">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Candidate Comparison</h3>
+          </div>
+          <div className="p-6">
+            {candidates.length > 0 ? (
+              <ChartContainer config={barConfig} className="min-h-[240px] w-full">
+                <BarChart data={barData} margin={{ top: 24, right: 16, left: 0, bottom: 0 }} accessibilityLayer>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="candidate" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={40} />
+                  <ChartTooltip cursor={false} content={
+                    <ChartTooltipContent hideLabel formatter={(value, _name, props) => [
+                      <span key="v" className="font-bold">{Number(value).toLocaleString()} votes</span>,
+                      <span key="p" className="text-muted-foreground ml-1">{props.payload?.party}</span>,
+                    ]} />
+                  } />
+                  <Bar dataKey="votes" radius={[6, 6, 0, 0]}>
+                    {barData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                    <LabelList dataKey="votes" position="top" style={{ fontSize: 11, fontWeight: 700 }}
+                      formatter={(v: any) => (typeof v === 'number' ? v.toLocaleString() : v)} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-center py-12 text-sm text-muted-foreground">No data available</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Results Table */}
+      <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b bg-muted/30 flex items-center gap-3">
+          <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Results Table</h3>
+        </div>
+        {candidates.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+            <Info className="h-8 w-8 opacity-40" />
+            <p className="text-sm">No results available</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Rank</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Candidate</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Party</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">Votes</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">%</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {candidates.map((c) => (
+                <TableRow key={c.rank}
+                  className={`hover:bg-muted/40 transition-colors ${c.rank === 1 ? 'bg-amber-50 dark:bg-amber-900/10' : ''}`}>
+                  <TableCell className="px-6 py-4">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${c.rank === 1 ? 'bg-amber-500 text-white shadow-sm' : 'bg-muted text-muted-foreground'}`}>
+                      {c.rank}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      {c.rank === 1 && (
+                        <div className="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                          <Medal className="h-3.5 w-3.5 text-amber-600" />
+                        </div>
+                      )}
+                      <p className="text-sm font-bold">{c.name}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-sm text-muted-foreground font-medium">{c.party}</TableCell>
+                  <TableCell className="px-6 py-4 text-right font-bold text-sm">{c.votes.toLocaleString()}</TableCell>
+                  <TableCell className="px-6 py-4 text-right text-sm text-muted-foreground">{c.percentage}%</TableCell>
+                  <TableCell className="px-6 py-4 text-right">
+                    {c.rank === 1 && (
+                      <Badge className="border-0 text-xs font-bold rounded-full px-2.5 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 uppercase tracking-tight">
+                        Winner
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 const VoterPortalDashboard: React.FC = () => {
   const navigate = useNavigate();
   const voterNid = sessionStorage.getItem('voterNid');
-  
+  const voterName = sessionStorage.getItem('voterName');
+  const voterConstituencyId = sessionStorage.getItem('voterConstituencyId');
+
   const [elections, setElections] = useState<Election[]>([]);
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(null);
   const [details, setDetails] = useState<VoterDetails | null>(null);
-  const [stats, setStats] = useState<ElectionStats | null>(null);
+  const [constResults, setConstResults] = useState<ConstituencyResults | null>(null);
+  const [overallResults, setOverallResults] = useState<OverallResults | null>(null);
   const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const [activeTab, setActiveTab] = useState<'constituency' | 'overall'>('constituency');
+
   const [token, setToken] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const [verifiedVote, setVerifiedVote] = useState<{ candidate_name: string; party: string } | null>(null);
 
-  const API_BASE = 'http://localhost:3001/api/voter-portal';
-
-  // Check access on mount
+  // Guard
   useEffect(() => {
     if (!voterNid) {
-       toast.error('Identity not verified. Please enter your NID.');
-       navigate('/voter-portal');
+      toast.error('Identity not verified. Please enter your NID.');
+      navigate('/voter-portal');
     }
   }, [voterNid, navigate]);
 
-  // 1. Fetch available elections
+  // Fetch elections
   useEffect(() => {
     if (!voterNid) return;
-
-    fetch(`${API_BASE}/my-elections?nid=${voterNid}`)
-      .then((res) => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then((data) => {
+    fetch(`${API}/my-elections?nid=${voterNid}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(data => {
         setElections(data);
         if (data.length > 0) setSelectedElectionId(String(data[0].election_id));
       })
-      .catch((err) => {
-        console.error('Error fetching elections:', err);
-        toast.error('Could not load elections for this NID.');
-      });
+      .catch(() => toast.error('Could not load elections for this NID.'));
   }, [voterNid]);
 
-  // 2. Fetch specific election data
+  // Fetch election data when selection changes
   const fetchElectionData = useCallback(async (electionId: string) => {
     if (!voterNid) return;
     setLoading(true);
+    setConstResults(null);
+    setOverallResults(null);
+    setVerifiedVote(null);
     try {
       const election = elections.find(e => String(e.election_id) === electionId);
-      
-      // Fetch common details (Assignment View)
-      const detailsRes = await fetch(`${API_BASE}/details?nid=${voterNid}&election_id=${electionId}`);
-      if (!detailsRes.ok) throw new Error();
-      const detailsData = await detailsRes.json();
-      setDetails(detailsData);
+      const detailsRes = await fetch(`${API}/details?nid=${voterNid}&election_id=${electionId}`);
+      if (detailsRes.ok) {
+        const d = await detailsRes.json();
+        setDetails(d);
 
-      // If finalized/completed, fetch stats (Results View)
-      if (election?.status === 'FINALIZED' || election?.status === 'COMPLETED') {
-        const statsRes = await fetch(`${API_BASE}/stats?nid=${voterNid}&election_id=${electionId}`);
-        if (!statsRes.ok) throw new Error();
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      } else {
-        setStats(null);
+        if (election?.status === 'FINALIZED' || election?.status === 'COMPLETED' || election?.status === 'CLOSED') {
+          const cId = d.constituency_id || voterConstituencyId;
+          if (cId) {
+            const [cRes, oRes] = await Promise.all([
+              fetch(`${API}/election-results/${electionId}/${cId}`),
+              fetch(`${API}/election-results-overall/${electionId}`),
+            ]);
+            if (cRes.ok) setConstResults(await cRes.json());
+            if (oRes.ok) setOverallResults(await oRes.json());
+          }
+        }
       }
     } catch (err) {
-      console.error('Error loading dashboard data:', err);
+      toast.error('Failed to load election data.');
     } finally {
       setLoading(false);
     }
-  }, [voterNid, elections]);
+  }, [voterNid, elections, voterConstituencyId]);
 
   useEffect(() => {
-    if (selectedElectionId) {
-      fetchElectionData(selectedElectionId);
-    }
+    if (selectedElectionId && elections.length > 0) fetchElectionData(selectedElectionId);
   }, [selectedElectionId, fetchElectionData]);
 
-  // 3. Vote Verification
   const verifyVote = async () => {
     if (!token.trim()) return toast.warning('Please enter your voting token');
     setVerifying(true);
     setVerifiedVote(null);
     try {
-      const res = await fetch(`${API_BASE}/verify-vote/${token.trim()}`);
+      const res = await fetch(`${API}/verify-vote/${token.trim()}`);
       const data = await res.json();
-      if (res.ok) {
-        setVerifiedVote(data);
-        toast.success('Vote verified successfully!');
-      } else {
-        toast.error(data.error || 'Invalid token');
-      }
-    } catch (err) {
-      toast.error('Verification failed');
-    } finally {
-      setVerifying(false);
-    }
+      if (res.ok) { setVerifiedVote(data); toast.success('Vote verified successfully!'); }
+      else toast.error(data.error || 'Invalid token');
+    } catch { toast.error('Verification failed'); }
+    finally { setVerifying(false); }
+  };
+
+  const copyToken = () => {
+    navigator.clipboard.writeText(token).then(() => toast.success('Token copied!'));
   };
 
   const logout = () => {
     sessionStorage.removeItem('voterNid');
     sessionStorage.removeItem('voterName');
+    sessionStorage.removeItem('voterConstituencyId');
     navigate('/voter-portal');
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   const getDirections = () => {
@@ -213,500 +413,449 @@ const VoterPortalDashboard: React.FC = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   };
 
-  const selectedElection = elections.find((e) => String(e.election_id) === selectedElectionId);
+  const selectedElection = elections.find(e => String(e.election_id) === selectedElectionId);
+  const isFinalized = selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED' || selectedElection?.status === 'CLOSED';
+  const cfg = selectedElection ? (statusConfig[selectedElection.status] ?? statusConfig.PLANNED) : null;
+
+  // QR slip ID
+  const slipId = `VP-${voterNid?.slice(-4)}-${selectedElectionId}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(slipId)}`;
 
   if (!voterNid) return null;
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tighter flex items-center gap-2">
-            <Globe className="h-8 w-8 text-primary shrink-0" />
-            National Voter Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">
-            Welcome, <span className="text-foreground font-bold">{sessionStorage.getItem('voterName')}</span>. Review your details securely.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-[10px] font-black uppercase tracking-widest text-destructive hover:bg-destructive/10"
-            onClick={logout}
-          >
-            Logout
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="hidden md:flex items-center gap-2 font-bold bg-background/50 border-primary/20 hover:border-primary transition-all"
-            onClick={handlePrint}
-            disabled={!details}
-          >
-            <Printer className="h-4 w-4" />
-            Print Slip
-          </Button>
-          <div className="flex items-center gap-3 bg-card border rounded-xl p-1 px-2 shadow-premium-sm">
-            <label className="text-xs font-bold px-2 whitespace-nowrap uppercase tracking-widest text-muted-foreground opacity-60">Election:</label>
-            <Select
-              value={selectedElectionId || ''}
-              onValueChange={setSelectedElectionId}
-            >
-              <SelectTrigger className="w-[180px] md:w-[260px] border-none shadow-none focus:ring-0 bg-muted/50 rounded-lg h-8 font-bold">
-                <SelectValue placeholder="Choose an election" />
-              </SelectTrigger>
-              <SelectContent>
-                {elections.map((e) => (
-                  <SelectItem key={e.election_id} value={String(e.election_id)}>
-                    {e.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      {!selectedElectionId ? (
-        <Card className="border-dashed py-16 text-center text-muted-foreground bg-card/50">
-          <Info className="h-14 w-14 mx-auto opacity-20 mb-4" />
-          <p className="font-bold uppercase tracking-widest text-xs">No Records Found</p>
-          <p className="text-sm mt-1">No active or completed elections were found for your NID.</p>
-        </Card>
-      ) : loading ? (
-        <div className="py-24 text-center text-muted-foreground flex flex-col items-center gap-4">
-          <Spinner className="h-10 w-10 text-primary" />
-          <p className="font-bold uppercase tracking-[0.2em] text-xs">Syncing National Database...</p>
-        </div>
-      ) : (
-        <>
-          {/* Status Banner */}
-          <div className={`p-5 rounded-2xl border flex items-center justify-between shadow-premium-sm overflow-hidden relative ${
-            selectedElection?.status === 'LIVE' ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400' :
-            (selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400' :
-            'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
-          }`}>
-             {/* Gradient Accent */}
-             <div className={`absolute top-0 left-0 h-full w-1.5 ${
-                selectedElection?.status === 'LIVE' ? 'bg-green-500' : 
-                (selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? 'bg-blue-500' : 
-                'bg-amber-500'
-             }`} />
-
-            <div className="flex items-center gap-4">
-              <div className={`h-12 w-12 rounded-xl flex items-center justify-center shadow-lg ${
-                selectedElection?.status === 'LIVE' ? 'bg-green-500 text-white animate-pulse' :
-                (selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? 'bg-blue-500 text-white' :
-                'bg-amber-500 text-white'
-              }`}>
-                {selectedElection?.status === 'LIVE' ? <Vote className="h-6 w-6" /> : 
-                 (selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? <CheckCircle2 className="h-6 w-6" /> : 
-                 <Calendar className="h-6 w-6" />}
-              </div>
-              <div className="space-y-0.5">
-                <p className="font-black text-xl uppercase tracking-tighter leading-none">
-                  {selectedElection?.status === 'LIVE' ? 'Voting is Live Now' : 
-                   (selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? 'Election Results Released' : 
-                   'Scheduled for Polls'}
-                </p>
-                <div className="flex items-center gap-2">
-                   <Badge variant="outline" className="text-[10px] uppercase font-black px-1.5 h-4 border-current">
-                      {selectedElection?.status}
-                   </Badge>
-                   <Separator orientation="vertical" className="h-3 bg-current opacity-20" />
-                   <p className="text-xs opacity-80 font-bold uppercase tracking-widest">
-                     {selectedElection?.status === 'LIVE' ? 'Proceed to center' : 
-                      (selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? 'View full breakdown below' : 
-                      'Planned election'}
-                   </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="hidden sm:block text-right">
-              <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Election Phase</p>
-              <p className="font-black text-lg">{selectedElection?.status === 'LIVE' ? 'PHASE 2: VOTING' : 
-                   (selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? 'PHASE 3: PUBLICATION' : 
-                   'PHASE 1: PREPARATION'}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column - Voter & Center Info */}
-            <div className="lg:col-span-1 space-y-6">
-              {/* Voter Profile Card */}
-              <Card className="overflow-hidden border shadow-premium-sm">
-                <CardHeader className="pb-3 border-b bg-muted/30">
-                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-xs uppercase tracking-[0.2em] font-black text-muted-foreground flex items-center gap-2">
-                      <User className="h-3.5 w-3.5" /> Registered Voter
-                    </CardTitle>
-                    <div className="h-6 w-6 rounded bg-primary/20 flex items-center justify-center text-primary">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                    </div>
-                   </div>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-center gap-4 py-2">
-                    <div className="h-14 w-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-black text-2xl shadow-premium">
-                      {details?.voter_name?.[0]}
-                    </div>
-                    <div>
-                      <p className="font-black text-xl leading-none tracking-tighter mb-1">{details?.voter_name}</p>
-                      <Badge variant="outline" className="font-bold text-[10px] h-5 tracking-widest">NID: {details?.nid}</Badge>
-                    </div>
-                  </div>
-                  <Separator className="opacity-50" />
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Constituency</p>
-                      <p className="font-black text-sm text-primary leading-tight uppercase">{details?.constituency_name}</p>
-                    </div>
-                    <div className="space-y-1 text-right">
-                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</p>
-                       <Badge variant={details?.has_voted ? 'outline' : 'destructive'} className={details?.has_voted ? "font-black h-5 text-[10px] uppercase bg-green-600 text-white border-none" : "font-black h-5 text-[10px] uppercase"}>
-                        {details?.has_voted ? 'VERIFIED VOTE' : 'UNDECIDED'}
-                       </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Polling Station Card */}
-              <Card className="shadow-premium-sm border-2 border-primary/5">
-                <CardHeader className="pb-3 bg-primary/[0.03]">
-                  <CardTitle className="text-xs uppercase tracking-[0.2em] font-black text-primary flex items-center gap-2">
-                    <MapPin className="h-3.5 w-3.5" /> Polling Station
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-5">
-                  <div className="space-y-1">
-                    <h3 className="font-black text-lg leading-tight tracking-tight uppercase">{details?.center_name || 'NOT ASSIGNED'}</h3>
-                    <p className="text-xs text-muted-foreground font-medium leading-relaxed">{details?.center_address || 'Assignment pending.'}</p>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="flex-1 p-3 rounded-xl bg-muted/40 border border-dashed text-center">
-                      <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Your Booth</p>
-                      <p className="text-3xl font-black text-primary leading-none">#{details?.booth_number || '--'}</p>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      className="h-auto px-4 rounded-xl border-primary/20 flex flex-col gap-1 hover:bg-primary/5 transition-colors shadow-sm"
-                      onClick={getDirections}
-                    >
-                      <ExternalLink className="h-5 w-5 opacity-60" />
-                      <span className="text-[9px] font-black uppercase">Navigate</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column - Results or Assignment Map */}
-            <div className="lg:col-span-2 space-y-8">
-              {(selectedElection?.status === 'FINALIZED' || selectedElection?.status === 'COMPLETED') ? (
-                /* 🟥 RESULTS VIEW */
-                <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-                  {/* Summary Dashboard */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Card className="bg-primary text-primary-foreground border-none shadow-premium overflow-hidden relative group">
-                        <div className="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-white/10 group-hover:scale-125 transition-transform duration-700" />
-                        <CardContent className="pt-6 relative z-10">
-                          <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">Constituency Turnout</p>
-                          <div className="flex items-end gap-3">
-                            <span className="text-4xl font-black">{Math.round(((stats?.summary.votes_cast || 0) / (stats?.summary.total_assigned || 1)) * 100)}%</span>
-                            <span className="text-xs font-bold mb-1.5 opacity-70">({stats?.summary.votes_cast.toLocaleString()} votes cast)</span>
-                          </div>
-                          <div className="mt-4 h-1.5 bg-white/20 rounded-full overflow-hidden">
-                             <div className="h-full bg-white transition-all duration-1000" style={{ width: `${Math.round(((stats?.summary.votes_cast || 0) / (stats?.summary.total_assigned || 1)) * 100)}%` }} />
-                          </div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-none shadow-premium bg-card flex items-center justify-between p-6">
-                        <div className="space-y-1">
-                           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Constituency Info</p>
-                           <p className="text-lg font-black">{stats?.constituency_name}</p>
-                           <p className="text-xs font-medium text-muted-foreground">{selectedElection?.name}</p>
-                        </div>
-                        <div className="h-12 w-12 rounded-full border-4 border-muted flex items-center justify-center text-primary font-black shadow-inner">
-                          {stats?.candidates.length || 0}
-                        </div>
-                    </Card>
-                  </div>
-
-                  {/* Leaderboard & Chart */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card className="border shadow-premium-sm flex flex-col">
-                      <CardHeader className="pb-3 border-b bg-muted/10">
-                        <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-wide">
-                          <BarChart3 className="h-4 w-4 text-primary" /> Candidate Standings
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-0 flex-1">
-                        <Table>
-                          <TableBody>
-                            {stats?.candidates.map((c, idx) => (
-                              <TableRow key={idx} className={idx === 0 ? 'bg-primary/[0.03]' : ''}>
-                                <TableCell className="py-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-muted text-muted-foreground'}`}>
-                                      {idx + 1}
-                                    </div>
-                                    <div>
-                                      <p className="font-bold text-sm leading-tight uppercase">{c.name}</p>
-                                      <p className="text-[9px] font-black text-muted-foreground tracking-widest uppercase">{c.party}</p>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                   <p className="text-sm font-black">{c.votes.toLocaleString()}</p>
-                                   <p className="text-[9px] font-bold text-muted-foreground">{Math.round((c.votes / (stats.summary.votes_cast || 1)) * 100)}%</p>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border shadow-premium-sm flex flex-col">
-                      <CardHeader className="pb-3 border-b bg-muted/10">
-                        <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-wide">
-                          <PieChart className="h-4 w-4 text-primary" /> Vote Distribution
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="flex-1 min-h-[250px] p-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                         {stats?.candidates.length ? (
-                           <PieChart>
-                             <Pie
-                               data={stats.candidates}
-                               innerRadius={60}
-                               outerRadius={80}
-                               paddingAngle={5}
-                               dataKey="votes"
-                               nameKey="name"
-                             >
-                               {stats.candidates.map((_, index) => (
-                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                               ))}
-                             </Pie>
-                             <RechartsTooltip contentStyle={{ fontSize: '10px', fontWeight: 'bold', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                             <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', paddingTop: '20px', textTransform: 'uppercase' }} />
-                           </PieChart>
-                         ) : (
-                           <div className="h-full flex items-center justify-center italic text-xs text-muted-foreground uppercase tracking-widest">No data available</div>
-                         )}
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Verification Section */}
-                  <Card className="border-2 border-primary/20 shadow-premium bg-background overflow-hidden">
-                    <div className="bg-primary text-primary-foreground px-6 py-4 flex items-center justify-between">
-                       <CardTitle className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter">
-                         <ShieldCheck className="h-5 w-5" /> Independent Vote Verification
-                       </CardTitle>
-                       <Badge variant="outline" className="text-white border-white/30 text-[9px] font-black uppercase tracking-widest">Election Finalized</Badge>
-                    </div>
-                    <CardContent className="pt-8 pb-10 space-y-8">
-                       <div className="max-w-md mx-auto text-center space-y-6">
-                         <div className="space-y-4">
-                            <p className="text-sm font-medium text-muted-foreground leading-relaxed">Enter your private <strong>Voting Token</strong> to securely verify which candidate was recorded for your vote.</p>
-                            <div className="flex gap-2">
-                               <div className="relative flex-1">
-                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                 <Input 
-                                   placeholder="VOTER-TOKEN-HERE" 
-                                   className="pl-10 h-12 text-center font-mono font-black border-2 focus-visible:ring-primary shadow-sm tracking-widest"
-                                   value={token}
-                                   onChange={(e) => setToken(e.target.value)}
-                                 />
-                               </div>
-                               <Button size="lg" className="h-12 font-black tracking-tight px-8" onClick={verifyVote} disabled={verifying}>
-                                 {verifying ? <Spinner className="h-4 w-4" /> : 'VERIFY'}
-                               </Button>
-                            </div>
-                         </div>
-
-                         {verifiedVote && (
-                            <div className="animate-in fade-in slide-in-from-top-4 duration-500 p-8 rounded-3xl bg-neutral-50 dark:bg-neutral-900 border-2 border-dashed border-primary/30 flex flex-col items-center gap-3">
-                               <div className="w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/30 mb-2">
-                                 <CheckCircle2 className="h-8 w-8" />
-                               </div>
-                               <div className="space-y-1">
-                                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Verified Choice:</p>
-                                 <h3 className="text-3xl font-black text-primary leading-tight uppercase tracking-tighter">{verifiedVote.candidate_name}</h3>
-                                 <Badge className="font-black px-6 rounded-full">{verifiedVote.party}</Badge>
-                               </div>
-                               <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-widest mt-4">Verified by Independent Election Audit Protocol</p>
-                            </div>
-                         )}
-                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              ) : (
-                /* 🟩 ASSIGNMENT VIEW */
-                <div className="space-y-8 animate-in slide-in-from-right-10 duration-1000">
-                  {/* Map Section */}
-                   <Card className="aspect-video rounded-3xl overflow-hidden border-none shadow-premium relative bg-neutral-200">
-                     {details?.lat && details?.lng ? (
-                        <iframe
-                          width="100%"
-                          height="100%"
-                          style={{ border: 0 }}
-                          title="Polling Center Location"
-                          loading="lazy"
-                          allowFullScreen
-                          referrerPolicy="no-referrer-when-downgrade"
-                          src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY_HERE&q=${details.lat},${details.lng}&zoom=15`}
-                        />
-                     ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/30 p-12 text-center bg-card">
-                           <MapPin className="h-24 w-24 mb-4 opacity-10" />
-                           <h2 className="text-2xl font-black uppercase tracking-tighter">Location Map Preview</h2>
-                           <p className="text-sm font-bold uppercase tracking-widest mt-2">{details?.center_address || 'Address processing'}</p>
-                        </div>
-                     )}
-
-                     {/* Map Legend/Overlay */}
-                     <div className="absolute top-6 left-6 max-w-[200px] p-4 rounded-2xl bg-background/80 backdrop-blur-md border shadow-2xl flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 rounded-full bg-primary" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Polling Center</span>
-                        </div>
-                        <Separator />
-                        <p className="text-[9px] font-medium text-muted-foreground leading-relaxed uppercase">Use this location for in-person voting on election day.</p>
-                     </div>
-                   </Card>
-
-                   {/* Instructions & Schedule */}
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Card className="shadow-premium-sm border-l-4 border-primary bg-card">
-                         <CardHeader className="pb-2">
-                           <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-wide">
-                             <Clock className="h-4 w-4 text-primary" /> Timing Details
-                           </CardTitle>
-                         </CardHeader>
-                         <CardContent className="space-y-4">
-                            <div className="flex gap-4">
-                               <div className="flex-1 p-3 rounded-2xl bg-muted/40 border">
-                                  <p className="text-[9px] font-black text-muted-foreground uppercase opacity-60">Date</p>
-                                  <p className="text-sm font-black">{selectedElection?.start_date ? new Date(selectedElection.start_date).toLocaleDateString() : 'TBD'}</p>
-                               </div>
-                               <div className="flex-1 p-3 rounded-2xl bg-muted/40 border">
-                                  <p className="text-[9px] font-black text-muted-foreground uppercase opacity-60">Hours</p>
-                                  <p className="text-sm font-black">08 AM - 04 PM</p>
-                               </div>
-                            </div>
-                            <Separator />
-                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest leading-none">Status: <span className="text-primary">{selectedElection?.status}</span></p>
-                         </CardContent>
-                      </Card>
-
-                      <Card className="shadow-premium-sm">
-                         <CardHeader className="pb-2">
-                           <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-wide">
-                             <ShieldCheck className="h-4 w-4 text-primary" /> Security Protocol
-                           </CardTitle>
-                         </CardHeader>
-                         <CardContent>
-                            <ul className="space-y-2.5">
-                              {[
-                                'Original National ID (NID) is mandatory.',
-                                'Verify your booth placement on arrival.',
-                                'Follow the queuing order and official guidance.',
-                                'Submit any grievances to the Presiding Officer.'
-                              ].map((item, idx) => (
-                                <li key={idx} className="flex gap-2 text-xs font-bold text-muted-foreground/80 lowercase italic">
-                                  <span className="text-primary font-black uppercase not-italic">[{idx + 1}]</span>
-                                  {item}
-                                </li>
-                              ))}
-                            </ul>
-                         </CardContent>
-                      </Card>
-                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-      
-      {/* ─── Hidden Printable Voter Slip ─── */}
+    <>
+      {/* ── Print Styles ─────────────────────────────────────────────────── */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          body * { visibility: hidden; }
-          #voter-slip-print, #voter-slip-print * { visibility: visible; }
-          #voter-slip-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: auto;
-            padding: 2rem;
-            background: white;
-            color: black;
-          }
+          body > * { display: none !important; }
+          #voter-slip-print { display: block !important; position: fixed; inset: 0; background: white; z-index: 9999; }
         }
-      `}} />
-      
-      <div id="voter-slip-print" className="hidden">
-        <div className="border-4 border-black p-8 max-w-lg mx-auto bg-white text-black space-y-6 text-left">
-          <div className="text-center border-b-2 border-black pb-4">
-            <h1 className="text-2xl font-black uppercase tracking-tighter">Official Voter Slip</h1>
-            <p className="text-sm font-bold">{selectedElection?.name}</p>
+      ` }} />
+
+      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight flex items-center gap-2">
+              <Globe className="h-8 w-8 text-primary shrink-0" />
+              Voter Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Welcome, <span className="font-bold text-foreground">{voterName}</span>. Review your electoral details securely.
+            </p>
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase">Voter Name</p>
-              <p className="font-bold">{details?.voter_name}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase">NID Number</p>
-              <p className="font-bold">{details?.nid}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase">Constituency</p>
-              <p className="font-bold">{details?.constituency_name}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase">Voter Status</p>
-              <p className="font-bold">{details?.has_voted ? 'VERIFIED VOTED' : 'PENDING'}</p>
-            </div>
-          </div>
-          
-          <div className="p-4 border-2 border-black bg-gray-100 space-y-1">
-            <p className="text-[10px] font-black uppercase">Designated Polling Center</p>
-            <p className="text-lg font-black uppercase">{details?.center_name}</p>
-            <p className="text-xs font-bold leading-tight">{details?.center_address}</p>
-          </div>
-          
-          <div className="flex justify-between items-end">
-            <div className="border-2 border-black p-2 bg-white">
-              <p className="text-[10px] font-black uppercase leading-none">Booth No.</p>
-              <p className="text-3xl font-black">#{details?.booth_number || 'TBD'}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-black italic">Public Portal Access</p>
-              <p className="text-[10px] font-black italic">Ref Code: {details?.nid?.slice(-4)}</p>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {details && (
+              <Button variant="outline" size="sm" className="gap-2 font-bold" onClick={() => window.print()}>
+                <Printer className="h-4 w-4" /> Print Slip
+              </Button>
+            )}
+            <Button variant="ghost" size="sm"
+              className="font-bold text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={logout}>
+              Logout
+            </Button>
+            {/* Election Dropdown */}
+            <div className="flex items-center gap-2 bg-card border rounded-xl p-1 px-3 shadow-sm">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">Election:</label>
+              <Select value={selectedElectionId || ''} onValueChange={setSelectedElectionId}>
+                <SelectTrigger className="w-[200px] md:w-[260px] border-none shadow-none focus:ring-0 bg-transparent h-8 font-bold">
+                  <SelectValue placeholder="Select Election" />
+                </SelectTrigger>
+                <SelectContent>
+                  {elections.map(e => (
+                    <SelectItem key={e.election_id} value={String(e.election_id)}>
+                      {e.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          
-          <div className="text-center pt-4 border-t border-black">
-            <p className="font-black text-sm uppercase">Please bring your original NID</p>
+        </header>
+
+        {/* ── No Elections ───────────────────────────────────────────────── */}
+        {!selectedElectionId ? (
+          <div className="bg-card border rounded-xl flex flex-col items-center gap-3 py-16 text-center text-muted-foreground shadow-sm">
+            <Info className="h-12 w-12 opacity-20" />
+            <p className="font-bold text-sm uppercase tracking-wider">No Records Found</p>
+            <p className="text-sm">No elections were found for your NID.</p>
+          </div>
+        ) : loading ? (
+          <div className="flex flex-col items-center gap-4 py-24 text-muted-foreground">
+            <Spinner className="h-8 w-8 text-primary" />
+            <p className="text-xs font-bold uppercase tracking-widest">Loading…</p>
+          </div>
+        ) : (
+          <>
+            {/* ── Election Header Banner ────────────────────────────────── */}
+            <div className={`bg-card border rounded-xl p-5 flex items-center justify-between shadow-sm overflow-hidden relative`}>
+              <div className={`absolute top-0 left-0 h-full w-1.5 ${isFinalized ? 'bg-emerald-500' : selectedElection?.status === 'LIVE' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+              <div className="flex items-center gap-4 pl-2">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isFinalized ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : selectedElection?.status === 'LIVE' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30'}`}>
+                  {isFinalized ? <Trophy className="h-5 w-5" /> : selectedElection?.status === 'LIVE' ? <Vote className="h-5 w-5" /> : <Calendar className="h-5 w-5" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h2 className="text-xl font-black tracking-tight">{selectedElection?.name}</h2>
+                    {cfg && (
+                      <Badge variant="outline" className={`border-0 text-xs font-bold rounded-full px-2.5 py-0.5 ${cfg.className}`}>
+                        {cfg.label}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {selectedElection?.start_date && `${formatDate(selectedElection.start_date)} — ${formatDate(selectedElection.end_date)}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── FINALIZED VIEW ────────────────────────────────────────── */}
+            {isFinalized ? (
+              <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+
+                {/* Toggle Tabs */}
+                <div className="flex gap-6 border-b">
+                  {([
+                    { key: 'constituency', label: 'My Constituency' },
+                    { key: 'overall',      label: 'Overall Results' },
+                  ] as const).map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                      className={`pb-4 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === tab.key ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Constituency Tab */}
+                {activeTab === 'constituency' && (
+                  constResults ? (
+                    <ResultsSection
+                      summary={constResults.summary}
+                      candidates={constResults.candidates}
+                      title={`Results in ${constResults.constituency_name}`}
+                      chartId="const-pie"
+                    />
+                  ) : (
+                    <div className="bg-card border rounded-xl flex flex-col items-center gap-3 py-12 text-muted-foreground shadow-sm">
+                      <Info className="h-8 w-8 opacity-40" />
+                      <p className="text-sm font-medium">Results not available for your constituency</p>
+                    </div>
+                  )
+                )}
+
+                {/* Overall Tab */}
+                {activeTab === 'overall' && (
+                  overallResults ? (
+                    <div className="space-y-6">
+                      <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Overall Election Results</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                        <SummaryCard icon={Users} label="Total Voters" value={overallResults.summary.total_voters.toLocaleString()} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
+                        <SummaryCard icon={Vote} label="Total Votes Cast" value={overallResults.summary.votes_cast.toLocaleString()} color="bg-violet-100 text-violet-600 dark:bg-violet-900/30" />
+                        <SummaryCard icon={TrendingUp} label="Overall Turnout" value={`${overallResults.summary.turnout}%`} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
+                      </div>
+
+                      {/* Party Seats Table */}
+                      {overallResults.party_seats.length > 0 && (
+                        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+                          <div className="px-6 py-4 border-b bg-muted/30 flex items-center gap-3">
+                            <Trophy className="h-4 w-4 text-muted-foreground" />
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Party Seats Won</h3>
+                            <Badge variant="secondary" className="text-xs">{overallResults.party_seats.length} parties</Badge>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Rank</TableHead>
+                                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Party</TableHead>
+                                <TableHead className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">Seats</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {overallResults.party_seats.map((p, i) => (
+                                <TableRow key={p.party_name} className={`hover:bg-muted/40 transition-colors ${i === 0 ? 'bg-amber-50 dark:bg-amber-900/10' : ''}`}>
+                                  <TableCell className="px-6 py-4">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground'}`}>{i + 1}</div>
+                                  </TableCell>
+                                  <TableCell className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
+                                      <p className="text-sm font-bold">{p.party_name}</p>
+                                      {i === 0 && <Medal className="h-4 w-4 text-amber-500" />}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="px-6 py-4 text-right font-bold">{p.seat_count}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+
+                      {/* Overall vote comparison */}
+                      {overallResults.parties.length > 0 && (
+                        <ResultsSection
+                          summary={overallResults.summary}
+                          candidates={overallResults.parties}
+                          title="Party Vote Comparison"
+                          chartId="overall-pie"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-card border rounded-xl flex flex-col items-center gap-3 py-12 text-muted-foreground shadow-sm">
+                      <Info className="h-8 w-8 opacity-40" />
+                      <p className="text-sm font-medium">Overall results not available</p>
+                    </div>
+                  )
+                )}
+
+                <hr className="border-border" />
+
+                {/* Personal Participation */}
+                <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b bg-muted/30">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <User className="h-4 w-4" /> Your Participation
+                    </h3>
+                  </div>
+                  <div className="p-6 flex items-center gap-5">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 ${details?.has_voted ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-red-100 text-red-600 dark:bg-red-900/30'}`}>
+                      {details?.has_voted ? <CheckCircle2 className="h-7 w-7" /> : <XCircle className="h-7 w-7" />}
+                    </div>
+                    <div>
+                      <p className={`text-lg font-black ${details?.has_voted ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {details?.has_voted ? 'You voted in this election' : 'You did not vote in this election'}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {details?.constituency_name && `Constituency: ${details.constituency_name}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vote Verification */}
+                <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b bg-muted/30">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4" /> Verify My Vote
+                    </h3>
+                  </div>
+                  <div className="p-6 space-y-6 max-w-xl">
+                    <p className="text-sm text-muted-foreground">Enter your private <strong>Voting Token</strong> to verify which candidate was recorded for your vote.</p>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Enter Voting Token"
+                          className="pl-10 h-11 font-mono font-bold border-2 focus-visible:ring-primary tracking-widest"
+                          value={token}
+                          onChange={e => setToken(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && verifyVote()}
+                        />
+                      </div>
+                      <Button className="h-11 font-bold px-6" onClick={verifyVote} disabled={verifying}>
+                        {verifying ? <Spinner className="h-4 w-4" /> : 'Verify'}
+                      </Button>
+                      {token && (
+                        <Button variant="outline" className="h-11 px-3" onClick={copyToken} title="Copy token">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {verifiedVote && (
+                      <div className="animate-in fade-in slide-in-from-top-4 duration-500 p-6 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-5">
+                        <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <CheckCircle2 className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">Verified Choice</p>
+                          <p className="text-xl font-black tracking-tight">{verifiedVote.candidate_name}</p>
+                          <Badge className="mt-1 border-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold">{verifiedVote.party}</Badge>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              /* ── ASSIGNMENT VIEW ─────────────────────────────────────── */
+              <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+
+                {/* Info Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Voter Info */}
+                  <div className="bg-card border rounded-xl p-6 flex items-center gap-4 shadow-sm">
+                    <div className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-black text-2xl flex-shrink-0">
+                      {details?.voter_name?.[0]}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1"><User className="h-3.5 w-3.5" /> Registered Voter</p>
+                      <p className="text-lg font-black tracking-tight truncate">{details?.voter_name}</p>
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        <Badge variant="outline" className="text-xs font-bold">NID: {details?.nid}</Badge>
+                        <Badge variant="outline" className="text-xs font-bold border-primary/30 text-primary">{details?.constituency_name}</Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Election Info */}
+                  <div className="bg-card border rounded-xl p-6 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Election Info</p>
+                    <p className="font-black text-base">{selectedElection?.name}</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="bg-muted/40 border rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Date</p>
+                        <p className="text-sm font-bold">{selectedElection?.start_date && formatDate(selectedElection.start_date)}</p>
+                      </div>
+                      <div className="bg-muted/40 border rounded-lg p-3">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Hours</p>
+                        <p className="text-sm font-bold">08 AM – 04 PM</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Polling Center */}
+                <div className="bg-card border rounded-xl p-6 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-primary" /> Polling Center</p>
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                      <h3 className="text-xl font-black tracking-tight">{details?.center_name || 'Not Assigned'}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{details?.center_address || 'Assignment pending'}</p>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <div className="text-center bg-muted/40 border rounded-xl p-4">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Booth</p>
+                        <p className="text-3xl font-black text-primary">#{details?.booth_number || '--'}</p>
+                      </div>
+                      <Button variant="outline" className="h-auto py-3 px-4 flex flex-col gap-1 rounded-xl" onClick={getDirections}>
+                        <ExternalLink className="h-5 w-5 opacity-70" />
+                        <span className="text-[9px] font-black uppercase">Navigate</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Map */}
+                <div className="bg-card border rounded-xl overflow-hidden shadow-sm aspect-video relative">
+                  {details?.lat && details?.lng ? (
+                    <iframe width="100%" height="100%" style={{ border: 0 }} title="Polling Center"
+                      loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY_HERE&q=${details.lat},${details.lng}&zoom=15`}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/30 bg-muted/10">
+                      <MapPin className="h-16 w-16 mb-2 opacity-10" />
+                      <p className="font-bold text-lg uppercase tracking-tighter">Map Preview</p>
+                      <p className="text-sm mt-1">{details?.center_address || 'Location pending'}</p>
+                    </div>
+                  )}
+                  <div className="absolute top-4 left-4 p-3 rounded-xl bg-background/80 backdrop-blur-sm border shadow-lg">
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <div className="h-3 w-3 rounded-full bg-primary" />
+                      Your Polling Center
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b bg-muted/30">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4" /> Voting Instructions
+                    </h3>
+                  </div>
+                  <div className="p-6">
+                    <ul className="space-y-3">
+                      {[
+                        'Bring your original National ID (NID) — it is mandatory.',
+                        'Arrive at your designated polling center on time.',
+                        'Verify your booth assignment at the entrance.',
+                        'Follow the queuing order and official staff guidance.',
+                        'Mobile phones and campaigning are not allowed inside.',
+                        'Submit any grievances to the Presiding Officer.',
+                      ].map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-3 text-sm">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs font-black">{idx + 1}</span>
+                          <span className="text-muted-foreground leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Print Voter Slip ─────────────────────────────────────────────── */}
+      <div id="voter-slip-print" style={{ display: 'none' }}>
+        <div style={{ fontFamily: 'sans-serif', maxWidth: 600, margin: '0 auto', padding: 32, color: '#000', background: '#fff' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', borderBottom: '3px solid #000', paddingBottom: 16, marginBottom: 24 }}>
+            <p style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: 2, marginBottom: 4 }}>ELECTION MANAGEMENT SYSTEM</p>
+            <h1 style={{ fontSize: 24, fontWeight: 900, margin: '8px 0' }}>Official Voting Slip</h1>
+            <p style={{ fontSize: 12, color: '#555' }}>{selectedElection?.name}</p>
+          </div>
+
+          {/* Voter Info */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div><p style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>Voter Name</p><p style={{ fontWeight: 'bold' }}>{details?.voter_name}</p></div>
+            <div><p style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>NID Number</p><p style={{ fontWeight: 'bold' }}>{details?.nid}</p></div>
+            <div><p style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>Constituency</p><p style={{ fontWeight: 'bold' }}>{details?.constituency_name}</p></div>
+            <div><p style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>Voter Status</p><p style={{ fontWeight: 'bold' }}>{details?.has_voted ? 'VOTED' : 'PENDING'}</p></div>
+          </div>
+
+          {/* Polling Center */}
+          <div style={{ background: '#f5f5f5', border: '2px solid #000', padding: 16, marginBottom: 20 }}>
+            <p style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 }}>Designated Polling Center</p>
+            <p style={{ fontSize: 18, fontWeight: 900, textTransform: 'uppercase' }}>{details?.center_name || 'Not Assigned'}</p>
+            <p style={{ fontSize: 12 }}>{details?.center_address}</p>
+            <p style={{ fontSize: 14, fontWeight: 900, marginTop: 8 }}>Booth No. {details?.booth_number || 'TBD'}</p>
+          </div>
+
+          {/* Voting Schedule */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div style={{ border: '1px solid #ccc', padding: 12, borderRadius: 8 }}>
+              <p style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>Election Date</p>
+              <p style={{ fontWeight: 'bold' }}>{selectedElection?.start_date && formatDate(selectedElection.start_date)}</p>
+            </div>
+            <div style={{ border: '1px solid #ccc', padding: 12, borderRadius: 8 }}>
+              <p style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>Voting Hours</p>
+              <p style={{ fontWeight: 'bold' }}>08:00 AM – 04:00 PM</p>
+            </div>
+          </div>
+
+          {/* Instructions */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 8 }}>Instructions</p>
+            {['Bring your original NID (mandatory)', 'Arrive at your assigned polling center', 'Proceed to Booth #' + (details?.booth_number || 'TBD'), 'Follow all official guidance'].map((t, i) => (
+              <p key={i} style={{ fontSize: 11, marginBottom: 4 }}>{i + 1}. {t}</p>
+            ))}
+          </div>
+
+          {/* Footer: QR + Signature */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '2px solid #000', paddingTop: 16, marginTop: 16 }}>
+            <div>
+              <img src={qrUrl} alt="QR Code" width={80} height={80} />
+              <p style={{ fontSize: 9, marginTop: 4 }}>Slip ID: {slipId}</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ width: 160, borderBottom: '1px solid #000', marginBottom: 4, height: 40 }} />
+              <p style={{ fontSize: 10 }}>Voter Signature</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
