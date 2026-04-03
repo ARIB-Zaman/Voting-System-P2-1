@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useGetIdentity } from '@refinedev/core';
 import {
   Vote,
@@ -14,6 +14,8 @@ import {
   Info,
   ChevronRight,
   ShieldCheck,
+  Printer,
+  Download,
 } from 'lucide-react';
 import {
   Card,
@@ -114,7 +116,9 @@ const VoterDashboard: React.FC = () => {
   useEffect(() => {
     if (!identity?.email) return;
 
-    fetch(`${API_BASE}/my-elections?email=${identity.email}`)
+    fetch(`${API_BASE}/my-elections?email=${identity.email}`, {
+      credentials: 'include',
+    })
       .then((res) => res.json())
       .then((data) => {
         setElections(data);
@@ -131,13 +135,17 @@ const VoterDashboard: React.FC = () => {
       const election = elections.find(e => String(e.election_id) === electionId);
       
       // Fetch common details (Assignment View)
-      const detailsRes = await fetch(`${API_BASE}/election/${electionId}/details?email=${identity.email}`);
+      const detailsRes = await fetch(`${API_BASE}/election/${electionId}/details?email=${identity.email}`, {
+        credentials: 'include',
+      });
       const detailsData = await detailsRes.json();
       setDetails(detailsData);
 
       // If finalized, fetch stats (Results View)
       if (election?.status === 'FINALIZED') {
-        const statsRes = await fetch(`${API_BASE}/election/${electionId}/stats?email=${identity.email}`);
+        const statsRes = await fetch(`${API_BASE}/election/${electionId}/stats?email=${identity.email}`, {
+          credentials: 'include',
+        });
         const statsData = await statsRes.json();
         setStats(statsData);
       } else {
@@ -166,6 +174,7 @@ const VoterDashboard: React.FC = () => {
       const res = await fetch(`${API_BASE}/verify-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ token: token.trim(), election_id: selectedElectionId }),
       });
       const data = await res.json();
@@ -180,6 +189,16 @@ const VoterDashboard: React.FC = () => {
     } finally {
       setVerifying(false);
     }
+  };
+  
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const getDirections = () => {
+    if (!details?.center_name) return;
+    const query = encodeURIComponent(`${details.center_name}, ${details.center_address}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   };
 
   const selectedElection = elections.find((e) => String(e.election_id) === selectedElectionId);
@@ -200,23 +219,34 @@ const VoterDashboard: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-card border rounded-xl p-2 shadow-sm">
-          <label className="text-sm font-bold px-2 whitespace-nowrap">Select Election:</label>
-          <Select
-            value={selectedElectionId || ''}
-            onValueChange={setSelectedElectionId}
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="hidden md:flex items-center gap-2 font-bold bg-background/50 backdrop-blur-sm border-primary/20 hover:border-primary transition-all"
+            onClick={handlePrint}
+            disabled={!details}
           >
-            <SelectTrigger className="w-[240px] border-none shadow-none focus:ring-0">
-              <SelectValue placeholder="Choose an election" />
-            </SelectTrigger>
-            <SelectContent>
-              {elections.map((e) => (
-                <SelectItem key={e.election_id} value={String(e.election_id)}>
-                  {e.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Printer className="h-4 w-4" />
+            Download Voter Slip
+          </Button>
+          <div className="flex items-center gap-3 bg-card border rounded-xl p-1 px-2 shadow-sm">
+            <label className="text-xs font-bold px-2 whitespace-nowrap text-muted-foreground uppercase tracking-tighter">Election:</label>
+            <Select
+              value={selectedElectionId || ''}
+              onValueChange={setSelectedElectionId}
+            >
+              <SelectTrigger className="w-[180px] md:w-[240px] border-none shadow-none focus:ring-0 font-bold bg-transparent">
+                <SelectValue placeholder="Choose an election" />
+              </SelectTrigger>
+              <SelectContent>
+                {elections.map((e) => (
+                  <SelectItem key={e.election_id} value={String(e.election_id)} className="font-medium">
+                    {e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -311,18 +341,25 @@ const VoterDashboard: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="p-4 rounded-xl bg-muted/30 border border-dashed border-primary/20 space-y-1">
+                  <div className="p-4 rounded-xl bg-muted/30 border border-dashed border-primary/20 space-y-1 relative group cursor-default shadow-inner">
                     <h3 className="font-black text-lg leading-tight">{details?.center_name}</h3>
                     <p className="text-sm text-muted-foreground leading-snug">{details?.center_address}</p>
+                    <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-30 transition-opacity">
+                      <MapPin className="h-8 w-8" />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 border rounded-xl bg-background shadow-sm">
+                    <div className="p-3 border rounded-xl bg-background shadow-sm hover:shadow-md transition-shadow">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Booth Number</p>
                       <p className="text-2xl font-black text-primary">#{details?.booth_number || 'TBD'}</p>
                     </div>
-                    <Button variant="outline" className="h-full flex flex-col items-center justify-center gap-1 rounded-xl group border-primary/20 hover:border-primary">
-                      <ExternalLink className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                      <span className="text-[10px] font-bold uppercase">Directions</span>
+                    <Button 
+                      variant="outline" 
+                      className="h-full flex flex-col items-center justify-center gap-1 rounded-xl group border-primary/20 hover:border-primary hover:bg-primary/5 transition-all shadow-sm"
+                      onClick={getDirections}
+                    >
+                      <ExternalLink className="h-4 w-4 group-hover:scale-110 transition-transform text-primary" />
+                      <span className="text-[10px] font-bold uppercase">Navigate</span>
                     </Button>
                   </div>
                 </CardContent>
@@ -595,6 +632,73 @@ const VoterDashboard: React.FC = () => {
           </div>
         </>
       )}
+      
+      {/* ─── Hidden Printable Voter Slip ─── */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body * { visibility: hidden; }
+          #voter-slip-print, #voter-slip-print * { visibility: visible; }
+          #voter-slip-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: auto;
+            padding: 2rem;
+            background: white;
+            color: black;
+          }
+        }
+      `}} />
+      
+      <div id="voter-slip-print" className="hidden">
+        <div className="border-4 border-black p-8 max-w-lg mx-auto bg-white text-black space-y-6">
+          <div className="text-center border-b-2 border-black pb-4">
+            <h1 className="text-2xl font-black uppercase tracking-tighter">Electoral Voter Slip</h1>
+            <p className="text-sm font-bold">{selectedElection?.name}</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase">Voter Name</p>
+              <p className="font-bold">{details?.voter_name}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase">NID Number</p>
+              <p className="font-bold">{details?.nid}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase">Constituency</p>
+              <p className="font-bold">{details?.constituency_name}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase">Voter Status</p>
+              <p className="font-bold">{details?.has_voted ? 'ALREADY VOTED' : 'PENDING'}</p>
+            </div>
+          </div>
+          
+          <div className="p-4 border-2 border-black bg-gray-100 space-y-1">
+            <p className="text-[10px] font-black uppercase">Designated Polling Center</p>
+            <p className="text-lg font-black">{details?.center_name}</p>
+            <p className="text-xs font-bold leading-tight">{details?.center_address}</p>
+          </div>
+          
+          <div className="flex justify-between items-end">
+            <div className="border-2 border-black p-2 bg-white">
+              <p className="text-[10px] font-black uppercase leading-none">Booth</p>
+              <p className="text-3xl font-black">#{details?.booth_number || 'TBD'}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black italic">Generated on {new Date().toLocaleDateString()}</p>
+              <p className="text-[10px] font-black italic">Secure System Access Ref: {details?.nid?.slice(-4)}</p>
+            </div>
+          </div>
+          
+          <div className="text-center pt-4 border-t border-black">
+            <p className="font-black text-sm uppercase">Please bring your original NID card</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

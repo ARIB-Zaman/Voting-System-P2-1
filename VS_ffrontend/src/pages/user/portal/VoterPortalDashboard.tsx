@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Vote,
@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Globe,
+  Printer,
 } from 'lucide-react';
 import {
   Card,
@@ -111,7 +112,7 @@ const VoterPortalDashboard: React.FC = () => {
   const [token, setToken] = useState('');
   const [verifiedVote, setVerifiedVote] = useState<{ candidate_name: string; party: string } | null>(null);
 
-  const API_BASE = 'http://localhost:3001/api/voter';
+  const API_BASE = 'http://localhost:3001/api/voter-portal';
 
   // Check access on mount
   useEffect(() => {
@@ -126,12 +127,18 @@ const VoterPortalDashboard: React.FC = () => {
     if (!voterNid) return;
 
     fetch(`${API_BASE}/my-elections?nid=${voterNid}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
       .then((data) => {
         setElections(data);
         if (data.length > 0) setSelectedElectionId(String(data[0].election_id));
       })
-      .catch((err) => console.error('Error fetching elections:', err));
+      .catch((err) => {
+        console.error('Error fetching elections:', err);
+        toast.error('Could not load elections for this NID.');
+      });
   }, [voterNid]);
 
   // 2. Fetch specific election data
@@ -142,13 +149,15 @@ const VoterPortalDashboard: React.FC = () => {
       const election = elections.find(e => String(e.election_id) === electionId);
       
       // Fetch common details (Assignment View)
-      const detailsRes = await fetch(`${API_BASE}/election/${electionId}/details?nid=${voterNid}`);
+      const detailsRes = await fetch(`${API_BASE}/details?nid=${voterNid}&election_id=${electionId}`);
+      if (!detailsRes.ok) throw new Error();
       const detailsData = await detailsRes.json();
       setDetails(detailsData);
 
       // If finalized/completed, fetch stats (Results View)
       if (election?.status === 'FINALIZED' || election?.status === 'COMPLETED') {
-        const statsRes = await fetch(`${API_BASE}/election/${electionId}/stats?nid=${voterNid}`);
+        const statsRes = await fetch(`${API_BASE}/stats?nid=${voterNid}&election_id=${electionId}`);
+        if (!statsRes.ok) throw new Error();
         const statsData = await statsRes.json();
         setStats(statsData);
       } else {
@@ -173,11 +182,7 @@ const VoterPortalDashboard: React.FC = () => {
     setVerifying(true);
     setVerifiedVote(null);
     try {
-      const res = await fetch(`${API_BASE}/verify-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token.trim(), election_id: selectedElectionId }),
-      });
+      const res = await fetch(`${API_BASE}/verify-vote/${token.trim()}`);
       const data = await res.json();
       if (res.ok) {
         setVerifiedVote(data);
@@ -190,6 +195,22 @@ const VoterPortalDashboard: React.FC = () => {
     } finally {
       setVerifying(false);
     }
+  };
+
+  const logout = () => {
+    sessionStorage.removeItem('voterNid');
+    sessionStorage.removeItem('voterName');
+    navigate('/voter-portal');
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const getDirections = () => {
+    if (!details?.center_name) return;
+    const query = encodeURIComponent(`${details.center_name}, ${details.center_address}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   };
 
   const selectedElection = elections.find((e) => String(e.election_id) === selectedElectionId);
@@ -206,27 +227,47 @@ const VoterPortalDashboard: React.FC = () => {
             National Voter Dashboard
           </h1>
           <p className="text-muted-foreground mt-1 text-sm font-medium">
-            Review your election details, polling center, and results securely.
+            Welcome, <span className="text-foreground font-bold">{sessionStorage.getItem('voterName')}</span>. Review your details securely.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-card border rounded-xl p-2 shadow-premium-sm">
-          <label className="text-sm font-black px-2 whitespace-nowrap uppercase tracking-widest text-muted-foreground opacity-60">Election:</label>
-          <Select
-            value={selectedElectionId || ''}
-            onValueChange={setSelectedElectionId}
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-[10px] font-black uppercase tracking-widest text-destructive hover:bg-destructive/10"
+            onClick={logout}
           >
-            <SelectTrigger className="w-[260px] border-none shadow-none focus:ring-0 bg-muted/50 rounded-lg h-9 font-bold">
-              <SelectValue placeholder="Choose an election" />
-            </SelectTrigger>
-            <SelectContent>
-              {elections.map((e) => (
-                <SelectItem key={e.election_id} value={String(e.election_id)}>
-                  {e.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            Logout
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="hidden md:flex items-center gap-2 font-bold bg-background/50 border-primary/20 hover:border-primary transition-all"
+            onClick={handlePrint}
+            disabled={!details}
+          >
+            <Printer className="h-4 w-4" />
+            Print Slip
+          </Button>
+          <div className="flex items-center gap-3 bg-card border rounded-xl p-1 px-2 shadow-premium-sm">
+            <label className="text-xs font-bold px-2 whitespace-nowrap uppercase tracking-widest text-muted-foreground opacity-60">Election:</label>
+            <Select
+              value={selectedElectionId || ''}
+              onValueChange={setSelectedElectionId}
+            >
+              <SelectTrigger className="w-[180px] md:w-[260px] border-none shadow-none focus:ring-0 bg-muted/50 rounded-lg h-8 font-bold">
+                <SelectValue placeholder="Choose an election" />
+              </SelectTrigger>
+              <SelectContent>
+                {elections.map((e) => (
+                  <SelectItem key={e.election_id} value={String(e.election_id)}>
+                    {e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -352,7 +393,11 @@ const VoterPortalDashboard: React.FC = () => {
                       <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Your Booth</p>
                       <p className="text-3xl font-black text-primary leading-none">#{details?.booth_number || '--'}</p>
                     </div>
-                    <Button variant="outline" className="h-auto px-4 rounded-xl border-primary/20 flex flex-col gap-1 hover:bg-primary/5 transition-colors">
+                    <Button 
+                      variant="outline" 
+                      className="h-auto px-4 rounded-xl border-primary/20 flex flex-col gap-1 hover:bg-primary/5 transition-colors shadow-sm"
+                      onClick={getDirections}
+                    >
                       <ExternalLink className="h-5 w-5 opacity-60" />
                       <span className="text-[9px] font-black uppercase">Navigate</span>
                     </Button>
@@ -594,6 +639,73 @@ const VoterPortalDashboard: React.FC = () => {
           </div>
         </>
       )}
+      
+      {/* ─── Hidden Printable Voter Slip ─── */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body * { visibility: hidden; }
+          #voter-slip-print, #voter-slip-print * { visibility: visible; }
+          #voter-slip-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: auto;
+            padding: 2rem;
+            background: white;
+            color: black;
+          }
+        }
+      `}} />
+      
+      <div id="voter-slip-print" className="hidden">
+        <div className="border-4 border-black p-8 max-w-lg mx-auto bg-white text-black space-y-6 text-left">
+          <div className="text-center border-b-2 border-black pb-4">
+            <h1 className="text-2xl font-black uppercase tracking-tighter">Official Voter Slip</h1>
+            <p className="text-sm font-bold">{selectedElection?.name}</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase">Voter Name</p>
+              <p className="font-bold">{details?.voter_name}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase">NID Number</p>
+              <p className="font-bold">{details?.nid}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase">Constituency</p>
+              <p className="font-bold">{details?.constituency_name}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase">Voter Status</p>
+              <p className="font-bold">{details?.has_voted ? 'VERIFIED VOTED' : 'PENDING'}</p>
+            </div>
+          </div>
+          
+          <div className="p-4 border-2 border-black bg-gray-100 space-y-1">
+            <p className="text-[10px] font-black uppercase">Designated Polling Center</p>
+            <p className="text-lg font-black uppercase">{details?.center_name}</p>
+            <p className="text-xs font-bold leading-tight">{details?.center_address}</p>
+          </div>
+          
+          <div className="flex justify-between items-end">
+            <div className="border-2 border-black p-2 bg-white">
+              <p className="text-[10px] font-black uppercase leading-none">Booth No.</p>
+              <p className="text-3xl font-black">#{details?.booth_number || 'TBD'}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black italic">Public Portal Access</p>
+              <p className="text-[10px] font-black italic">Ref Code: {details?.nid?.slice(-4)}</p>
+            </div>
+          </div>
+          
+          <div className="text-center pt-4 border-t border-black">
+            <p className="font-black text-sm uppercase">Please bring your original NID</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

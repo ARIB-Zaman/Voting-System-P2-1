@@ -1,16 +1,41 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { requireAuth } = require('../middleware/auth');
 
 /**
- * GET /api/voter/my-elections?email=<email>&nid=<nid>
- * Returns all elections the voter (matched by email or NID) is assigned to.
+ * POST /api/voter-portal/login
+ * Validates if the NID exists in the voter_of_election table.
  */
-router.get('/my-elections', requireAuth, async (req, res) => {
-    const email = req.user.email;
+router.post('/login', async (req, res) => {
+    const { nid } = req.body;
+    if (!nid) return res.status(400).json({ error: 'NID is required' });
+
+    try {
+        const result = await pool.query(
+            `SELECT v.nid, v.name 
+             FROM voter v
+             JOIN voter_of_election voe ON voe.nid = v.nid
+             WHERE v.nid::text = $1
+             LIMIT 1`,
+            [nid]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Voter not found or not assigned to any election.' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error during voter login' });
+    }
+});
+
+/**
+ * GET /api/voter-portal/my-elections?nid=<nid>
+ */
+router.get('/my-elections', async (req, res) => {
     const { nid } = req.query;
-    if (!email && !nid) return res.status(400).json({ error: 'Email or NID is required' });
+    if (!nid) return res.status(400).json({ error: 'NID is required' });
 
     try {
         const result = await pool.query(
@@ -23,26 +48,23 @@ router.get('/my-elections', requireAuth, async (req, res) => {
              FROM election e
              JOIN voter_of_election voe ON voe.election_id = e.election_id
              JOIN voter v ON v.nid = voe.nid
-             WHERE ($1::text IS NULL OR v.email = $1)
-               AND ($2::text IS NULL OR v.nid::text = $2)
+             WHERE v.nid::text = $1
              ORDER BY e.start_date DESC`,
-            [email || null, nid || null]
+            [nid]
         );
         res.json(result.rows);
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Server error fetching voter elections' });
+        res.status(500).json({ error: 'Server error fetching elections' });
     }
 });
 
 /**
- * GET /api/voter/election/:id/details?email=<email>&nid=<nid>
- * Returns voter info and their assigned polling center details.
+ * GET /api/voter-portal/details?nid=<nid>&election_id=<id>
  */
-router.get('/election/:id/details', requireAuth, async (req, res) => {
-    const { id: electionId } = req.params;
-    const email = req.user.email;
-    const { nid } = req.query;
+router.get('/details', async (req, res) => {
+    const { nid, election_id } = req.query;
+    if (!nid || !election_id) return res.status(400).json({ error: 'NID and Election ID are required' });
 
     try {
         const result = await pool.query(
@@ -62,14 +84,12 @@ router.get('/election/:id/details', requireAuth, async (req, res) => {
              JOIN constituency c ON c.id = v.constituency_id
              LEFT JOIN polling_center pc ON pc.id = voe.center_id
              LEFT JOIN polling_booth pb ON pb.id = voe.booth_id
-             WHERE ($1::text IS NULL OR v.email = $1)
-               AND ($2::text IS NULL OR v.nid::text = $2)
-               AND voe.election_id = $3`,
-            [email || null, nid || null, electionId]
+             WHERE v.nid::text = $1 AND voe.election_id = $2`,
+            [nid, election_id]
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'No assignment found for this election' });
+            return res.status(404).json({ error: 'No assignment found' });
         }
 
         const otpCheck = await pool.query(
@@ -83,18 +103,16 @@ router.get('/election/:id/details', requireAuth, async (req, res) => {
         });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Server error fetching election details' });
+        res.status(500).json({ error: 'Server error fetching details' });
     }
 });
 
 /**
- * GET /api/voter/election/:id/stats?email=<email>&nid=<nid>
- * Aggregated results for the voter's constituency.
+ * GET /api/voter-portal/stats?election_id=<id>&nid=<nid>
  */
-router.get('/election/:id/stats', requireAuth, async (req, res) => {
-    const { id: electionId } = req.params;
-    const email = req.user.email;
-    const { nid } = req.query;
+router.get('/stats', async (req, res) => {
+    const { election_id, nid } = req.query;
+    if (!election_id || !nid) return res.status(400).json({ error: 'Election ID and NID are required' });
 
     try {
         const coeRes = await pool.query(
@@ -102,15 +120,11 @@ router.get('/election/:id/stats', requireAuth, async (req, res) => {
              FROM constituency_of_election coe
              JOIN voter v ON v.constituency_id = coe.constituency_id
              JOIN constituency c ON c.id = v.constituency_id
-             WHERE ($1::text IS NULL OR v.email = $1)
-               AND ($2::text IS NULL OR v.nid::text = $2)
-               AND coe.election_id = $3`,
-            [email || null, nid || null, electionId]
+             WHERE v.nid::text = $1 AND coe.election_id = $2`,
+            [nid, election_id]
         );
 
-        if (coeRes.rows.length === 0) {
-            return res.status(404).json({ error: 'Voter or constituency not found' });
-        }
+        if (coeRes.rows.length === 0) return res.status(404).json({ error: 'Constituency not found' });
         const { coe_id, name: constituency_name } = coeRes.rows[0];
 
         const statsRes = await pool.query(
@@ -123,14 +137,11 @@ router.get('/election/:id/stats', requireAuth, async (req, res) => {
              JOIN constituency_of_election coe_outer ON coe_outer.id = vl.constituency_of_election_id
              WHERE vl.constituency_of_election_id = $2
              GROUP BY coe_outer.constituency_id`,
-            [electionId, coe_id]
+            [election_id, coe_id]
         );
 
         const candidatesRes = await pool.query(
-            `SELECT 
-                ca.name, 
-                ca.party, 
-                COUNT(vl.voter_token) AS votes
+            `SELECT ca.name, ca.party, COUNT(vl.voter_token) AS votes
              FROM candidate ca
              LEFT JOIN voting_log vl ON vl.candidate_id = ca.candidate_id AND vl.constituency_of_election_id = $1
              WHERE ca.constituency_of_election_id = $1
@@ -149,21 +160,20 @@ router.get('/election/:id/stats', requireAuth, async (req, res) => {
         });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Server error fetching election results' });
+        res.status(500).json({ error: 'Server error fetching stats' });
     }
 });
 
 /**
- * POST /api/voter/verify-token
- * Verify a voting token. Returns candidate and party name.
+ * GET /api/voter-portal/verify-vote/:token
  */
-router.post('/verify-token', async (req, res) => {
-    const { token, election_id } = req.body;
+router.get('/verify-vote/:token', async (req, res) => {
+    const { token } = req.params;
     if (!token) return res.status(400).json({ error: 'Token is required' });
 
     try {
         const result = await pool.query(
-            `SELECT ca.name AS candidate_name, ca.party, e.name AS election_name, e.status
+            `SELECT ca.name AS candidate_name, ca.party, e.name AS election_name, e.status, e.election_id
              FROM voting_log vl
              JOIN candidate ca ON ca.candidate_id = vl.candidate_id
              JOIN constituency_of_election coe ON coe.id = vl.constituency_of_election_id
@@ -172,20 +182,18 @@ router.post('/verify-token', async (req, res) => {
             [token]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Invalid Token' });
-        }
-
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Invalid Token' });
+        
         const vote = result.rows[0];
-
         if (vote.status !== 'FINALIZED') {
-            return res.status(403).json({ error: 'Verification available after election is finalized.' });
+            return res.status(403).json({ error: 'Verification available after election completion' });
         }
 
         res.json({
             candidate_name: vote.candidate_name,
             party: vote.party,
-            election_name: vote.election_name
+            election_name: vote.election_name,
+            election_id: vote.election_id
         });
     } catch (err) {
         console.error(err);

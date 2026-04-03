@@ -93,6 +93,18 @@ router.put("/:coeId/ro", async (req, res) => {
 
     // If a new RO is being assigned, insert
     if (ro_id) {
+      // Conflict check: user already has a role in this election?
+      const conflict = await client.query(
+        "SELECT role FROM role_map WHERE election_id = $1 AND user_id = $2",
+        [election_id, ro_id]
+      );
+      if (conflict.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: `User is already assigned as ${conflict.rows[0].role} in this election.`
+        });
+      }
+
       await client.query(
         `INSERT INTO role_map (election_id, role, user_id, relation_id)
          VALUES ($1, 'RO', $2, $3)`,

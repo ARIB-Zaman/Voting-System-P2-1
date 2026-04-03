@@ -220,9 +220,9 @@ router.get("/assignable-for-election", async (req, res) => {
   }
   try {
     const result = await pool.query(
-      `SELECT u.id, u.name
+      `SELECT u.id, u.name, u.role as base_role
        FROM public."user" u
-       WHERE u.role = 'USER'
+       WHERE u.role != 'ADMIN'
          AND u.approved = true
          AND u.id NOT IN (
            SELECT rm.user_id

@@ -26,18 +26,20 @@ const VoterPortalLogin: React.FC = () => {
     setLoading(true);
     try {
       // Check if the NID exists / has assignments
-      const res = await fetch(`http://localhost:3001/api/voter/my-elections?nid=${nid.trim()}`);
+      const res = await fetch(`http://localhost:3001/api/voter-portal/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nid: nid.trim() }),
+      });
       if (res.ok) {
         const data = await res.json();
-        if (data.length >= 0) {
-          sessionStorage.setItem('voterNid', nid.trim());
-          toast.success('Access granted to Voter Portal');
-          navigate('/voter-portal/dashboard');
-        } else {
-          toast.error('No records found for this NID.');
-        }
+        sessionStorage.setItem('voterNid', nid.trim());
+        sessionStorage.setItem('voterName', data.name);
+        toast.success('Access granted to Voter Portal');
+        navigate('/voter-portal/dashboard');
       } else {
-        toast.error('Invalid NID or service unavailable.');
+        const errData = await res.json();
+        toast.error(errData.error || 'Invalid NID or no records found.');
       }
     } catch (err) {
       toast.error('Verification failed. Please try again.');
