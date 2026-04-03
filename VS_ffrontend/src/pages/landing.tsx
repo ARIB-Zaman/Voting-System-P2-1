@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { LogIn, UserPlus, Loader2, CheckCircle2, X } from 'lucide-react';
+import { LogIn, UserPlus, Loader2, CheckCircle2, X, Search } from 'lucide-react';
 import type { Application } from '@splinetool/runtime';
 
 const Spline = lazy(() => import('@splinetool/react-spline'));
@@ -62,6 +62,14 @@ const LandingPage: React.FC = () => {
                     <div className="flex items-center gap-3 pointer-events-auto">
                         <Button
                             variant="ghost"
+                            className="text-white/60 hover:text-white hover:bg-white/10 font-medium"
+                            onClick={() => navigate('/voter-portal')}
+                        >
+                            <Search className="h-4 w-4 mr-2" />
+                            Election Enquiry
+                        </Button>
+                        <Button
+                            variant="ghost"
                             className="text-white/80 hover:text-white hover:bg-white/10 font-medium"
                             onClick={() => setPanel('login')}
                         >
@@ -105,6 +113,15 @@ const LandingPage: React.FC = () => {
                             onClick={() => setPanel('login')}
                         >
                             Sign In
+                        </Button>
+                        <Button
+                            size="lg"
+                            variant="ghost"
+                            className="text-white/60 hover:text-white hover:bg-white/10 font-medium h-12 text-base px-6"
+                            onClick={() => navigate('/voter-portal')}
+                        >
+                            <Search className="h-4 w-4 mr-2" />
+                            Election Enquiry
                         </Button>
                     </div>
                 </div>

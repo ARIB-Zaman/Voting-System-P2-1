@@ -6,7 +6,7 @@ const { requireAuth, requireRole, requireElectionRole } = require("../middleware
 // GET /election/:electionId/center/:centerId
 // Fetch all booths for this election + center, with their PO officers
 router.get("/election/:electionId/center/:centerId", 
-      requireAuth, // first, verify JWT and attach req.user
+     // requireAuth, // first, verify JWT and attach req.user
   async (req, res) => {
   try {
     const { electionId, centerId } = req.params;

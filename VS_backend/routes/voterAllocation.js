@@ -40,17 +40,17 @@ router.get("/center/:centerId/election/:electionId",requireAuth, async (req, res
 router.get("/search", 
       requireAuth, // first, verify JWT and attach req.user
   async (req, res) => {
-  const { q = "", election_id, constituency_id, limit = "50" } = req.query;
+  const { q = "", election_id, constituency_id, not_in_election, limit = "50" } = req.query;
   if (!election_id || !constituency_id) {
     return res.status(400).json({ error: "election_id and constituency_id are required" });
   }
   try {
     const search = `%${q}%`;
     let query;
-    let params;
 
     if (not_in_election === 'true') {
-      // MODE 1: Show voters in master list who are NOT yet in this election
+      // MODE 1: Show voters in the master voter list who are NOT yet assigned to this election.
+      // i.e. voters in the 'voter' table for that constituency, with no matching row in voter_of_election.
       query = `
         SELECT v.nid, v.name, v.phone, v.voter_type
         FROM voter v
@@ -77,7 +77,7 @@ router.get("/search",
         LIMIT $4`;
     }
 
-    params = [constituency_id, election_id, search, parseInt(limit)];
+    const params = [constituency_id, election_id, search, parseInt(limit)];
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
@@ -92,7 +92,7 @@ router.get("/search",
  * Voters must already be in voter_of_election with center_id = NULL.
  * Body: { nids: string[], center_id, election_id }
  */
-router.post("/manual", async (req, res) => {
+router.post("/manual", requireAuth, async (req, res) => {
   const { nids, center_id, election_id } = req.body;
   if (!Array.isArray(nids) || nids.length === 0 || !center_id || !election_id) {
     return res.status(400).json({ error: "nids (array), center_id, and election_id are required" });
@@ -119,6 +119,29 @@ router.post("/manual", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   } finally {
     client.release();
+  }
+});
+
+/**
+ * GET /api/voter-allocation/auto/preview?center_id=&election_id=&count=
+ * Preview which voters WOULD be auto-allocated — runs the DB geospatial function
+ * without writing anything. Returns: [{ nid, name, phone, distance }]
+ */
+router.get("/auto/preview", requireAuth, async (req, res) => {
+  const { center_id, election_id, count = "50" } = req.query;
+  if (!center_id || !election_id) {
+    return res.status(400).json({ error: "center_id and election_id are required" });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT nid, name, phone, distance, lat, lng
+       FROM get_closest_unallocated_voters($1::integer, $2::integer, $3::integer)`,
+      [parseInt(center_id), parseInt(election_id), parseInt(count)]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -404,23 +427,50 @@ router.put("/:voeId/booth",requireAuth, async (req, res) => {
  * Auto-distribute all unassigned voters (booth_id IS NULL) to booths
  * using the DB function distribute_unassigned_voters(center_id, election_id).
  */
-router.post("/center/:centerId/election/:electionId/distribute",requireAuth, async (req, res) => {
-  const { centerId, electionId } = req.params;
-  try {
-    const result = await pool.query(
-      `SELECT distribute_unassigned_voters($1, $2) AS assigned_count`,
-      [centerId, electionId]
-    );
-    const assignedCount = result.rows[0]?.assigned_count ?? 0;
-    res.json({
-      assigned: assignedCount,
-      message: `${assignedCount} voter(s) distributed across booths`,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+// router.post("/center/:centerId/election/:electionId/distribute",requireAuth, async (req, res) => {
+//   const { centerId, electionId } = req.params;
+//   try {
+//     const result = await pool.query(
+//       `SELECT distribute_unassigned_voters($1, $2) AS assigned_count`,
+//       [centerId, electionId]
+//     );
+//     const assignedCount = result.rows[0]?.assigned_count ?? 0;
+//     res.json({
+//       assigned: assignedCount,
+//       message: `${assignedCount} voter(s) distributed across booths`,
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+router.post(
+  "/center/:centerId/election/:electionId/distribute",
+  requireAuth,
+  async (req, res) => {
+    const { centerId, electionId } = req.params;
+
+    try {
+      const result = await pool.query(
+        `
+        CALL distribute_unassigned_voters_p($1, $2, NULL);
+        `,
+        [centerId, electionId]
+      );
+
+      // ❗ pg does NOT return OUT param directly
+      // So you currently cannot extract assigned_count this way
+
+      res.json({
+        assigned: null,
+        message: `Voters distributed successfully`,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Server error" });
+    }
   }
-});
+);
 
 // ═══════════════════════════════════════════════════════════════
 // ELECTION-LEVEL VOTER MANAGEMENT

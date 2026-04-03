@@ -5,7 +5,7 @@ const { requireAuth, requireRole, requireElectionRole } = require("../middleware
 // GET /election/:electionId/constituency/:constituencyId
 // Polling centers assigned to this election for a specific constituency, with PRO info
 router.get("/election/:electionId/constituency/:constituencyId", 
-      requireAuth, // first, verify JWT and attach req.user
+    //  requireAuth, // first, verify JWT and attach req.user
   async (req, res) => {
   try {
     const { electionId, constituencyId } = req.params;

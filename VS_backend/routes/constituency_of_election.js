@@ -47,7 +47,7 @@ router.post("/",
 
 // GET /election/:electionId — constituencies for an election with assigned RO
 router.get("/election/:electionId", 
-    requireAuth, // first, verify JWT and attach req.user
+  //  requireAuth, // first, verify JWT and attach req.user
   async (req, res) => {
   try {
     const { electionId } = req.params;

@@ -6,14 +6,8 @@ const { requireAuth, requireRole, requireElectionRole } = require("../middleware
 
 // GET all elections
 router.get("/", 
-    requireAuth, // first, verify JWT and attach req.user
-    async (req, res, next) => {
-        // 1️⃣ Admin bypass
-        if (req.user.role === "ADMIN") return next();
-
-        // 3️⃣ If none matched
-        return res.status(403).json({ error: "Forbidden" });
-    },
+   // requireAuth, // first, verify JWT and attach req.user
+    
     async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM election");
@@ -54,14 +48,7 @@ router.post("/",
 });
 
 router.get("/:id", 
-    requireAuth, // first, verify JWT and attach req.user
-    async (req, res, next) => {
-        // 1️⃣ Admin bypass
-        if (req.user.role === "ADMIN") return next();
-
-        // 3️⃣ If none matched
-        return res.status(403).json({ error: "Forbidden" });
-    },
+   // requireAuth, // first, verify JWT and attach req.user
     async (req, res) => {
     const { id } = req.params;
     try {
@@ -113,13 +100,7 @@ router.put("/:id",
 // DELETE election
 router.delete("/:id", 
         requireAuth, // first, verify JWT and attach req.user
-    async (req, res, next) => {
-        // 1️⃣ Admin bypass
-        if (req.user.role === "ADMIN") return next();
-
-        // 3️⃣ If none matched
-        return res.status(403).json({ error: "Forbidden" });
-    },
+    requireRole('ADMIN'),
     async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
@@ -130,6 +111,7 @@ router.delete("/:id",
         await client.query("DELETE FROM role_map WHERE election_id = $1", [id]);
         // Delete constituency_of_election entries
         await client.query("DELETE FROM constituency_of_election WHERE election_id = $1", [id]);
+        await client.query("DELETE FROM polling_center_of_election WHERE election_id = $1", [id]);
         // Delete election
         const result = await client.query(
             "DELETE FROM election WHERE election_id = $1 RETURNING *",

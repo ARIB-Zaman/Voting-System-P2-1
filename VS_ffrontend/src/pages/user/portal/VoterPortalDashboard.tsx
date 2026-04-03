@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import {
   Vote, MapPin, Calendar, User, CheckCircle2, XCircle,
   Search, ExternalLink, ShieldCheck, Globe, Printer, Copy,
-  Users, TrendingUp, Medal, Trophy, BarChart3, Info,
+  Users, TrendingUp, Medal, Trophy, BarChart3, Info, PartyPopper, AlertCircle,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ChartStyle } from '@/components/ui/chart';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -326,6 +327,20 @@ const VoterPortalDashboard: React.FC = () => {
   const [verifying, setVerifying] = useState(false);
   const [verifiedVote, setVerifiedVote] = useState<{ candidate_name: string; party: string } | null>(null);
 
+  // Derived state for overall results winner
+  const totalSeats = useMemo(() => {
+    if (!overallResults) return 0;
+    return overallResults.party_seats.reduce((sum, p) => sum + Number(p.seat_count), 0);
+  }, [overallResults]);
+
+  const winnerParty = useMemo<PartySeat | null>(() => {
+    if (!overallResults || overallResults.party_seats.length === 0 || totalSeats === 0) return null;
+    const top = overallResults.party_seats[0]; // already ordered by seat_count DESC
+    // Must have most seats AND >= 50%
+    if (top.seat_count >= Math.ceil(totalSeats / 2)) return top;
+    return null;
+  }, [overallResults, totalSeats]);
+
   // Guard
   useEffect(() => {
     if (!voterNid) {
@@ -368,7 +383,22 @@ const VoterPortalDashboard: React.FC = () => {
               fetch(`${API}/election-results-overall/${electionId}`),
             ]);
             if (cRes.ok) setConstResults(await cRes.json());
-            if (oRes.ok) setOverallResults(await oRes.json());
+            if (oRes.ok) {
+              const d = await oRes.json();
+              // Capitalize party names case-insensitively
+              if (d.party_seats) {
+                 const normalizedSeats: Map<string, number> = new Map();
+                 for (const p of d.party_seats) {
+                    const normalized = p.party_name.trim().toUpperCase();
+                    normalizedSeats.set(normalized, (normalizedSeats.get(normalized) || 0) + Number(p.seat_count));
+                 }
+                 const unified = Array.from(normalizedSeats.entries())
+                                      .map(([name, count]) => ({ party_name: name, seat_count: count }))
+                                      .sort((a,b) => b.seat_count - a.seat_count);
+                 d.party_seats = unified;
+              }
+              setOverallResults(d);
+            }
           }
         }
       }
@@ -453,11 +483,7 @@ const VoterPortalDashboard: React.FC = () => {
                 <Printer className="h-4 w-4" /> Print Slip
               </Button>
             )}
-            <Button variant="ghost" size="sm"
-              className="font-bold text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={logout}>
-              Logout
-            </Button>
+            
             {/* Election Dropdown */}
             <div className="flex items-center gap-2 bg-card border rounded-xl p-1 px-3 shadow-sm">
               <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">Election:</label>
@@ -559,6 +585,63 @@ const VoterPortalDashboard: React.FC = () => {
                         <SummaryCard icon={TrendingUp} label="Overall Turnout" value={`${overallResults.summary.turnout}%`} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
                       </div>
 
+                      {/* Winner / No-winner Banner */}
+                      {overallResults.party_seats.length > 0 && (
+                        winnerParty ? (
+                          <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl p-6 flex items-center gap-5 shadow-sm">
+                            <div className="w-16 h-16 rounded-full bg-amber-200 dark:bg-amber-800/50 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
+                              <PartyPopper className="h-8 w-8" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                                Winning Party
+                              </p>
+                              <p className="text-2xl font-black tracking-tight">{winnerParty.party_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Secured a parliamentary majority
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-3xl font-black text-amber-600 dark:text-amber-400">
+                                {winnerParty.seat_count}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                of {totalSeats} seats
+                              </p>
+                              <Badge className="mt-1 bg-amber-500 hover:bg-amber-500 text-white border-0 text-xs">
+                                {Math.round((winnerParty.seat_count / totalSeats) * 100)}% majority
+                              </Badge>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/30 dark:to-slate-800/10 border border-slate-200 dark:border-slate-700/40 rounded-xl p-6 flex items-center gap-5 shadow-sm">
+                            <div className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-700/50 flex items-center justify-center text-slate-500 dark:text-slate-400 flex-shrink-0">
+                              <AlertCircle className="h-8 w-8" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                                No Clear Winner
+                              </p>
+                              <p className="text-lg font-bold tracking-tight">Hung Parliament</p>
+                              <p className="text-sm text-muted-foreground">
+                                No party has secured ≥ 50% of the {totalSeats} available seats. Coalition
+                                negotiations may be required.
+                              </p>
+                            </div>
+                            {overallResults.party_seats[0] && (
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-xs text-muted-foreground mb-0.5">Leading party</p>
+                                <p className="font-bold text-base">{overallResults.party_seats[0].party_name}</p>
+                                <p className="text-2xl font-black text-slate-600 dark:text-slate-300">
+                                  {overallResults.party_seats[0].seat_count}
+                                </p>
+                                <p className="text-xs text-muted-foreground">seats</p>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      )}
+
                       {/* Party Seats Table */}
                       {overallResults.party_seats.length > 0 && (
                         <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
@@ -576,34 +659,159 @@ const VoterPortalDashboard: React.FC = () => {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {overallResults.party_seats.map((p, i) => (
-                                <TableRow key={p.party_name} className={`hover:bg-muted/40 transition-colors ${i === 0 ? 'bg-amber-50 dark:bg-amber-900/10' : ''}`}>
+                              {overallResults.party_seats.map((p, i) => {
+                                const isWinner = winnerParty?.party_name === p.party_name;
+                                return (
+                                <TableRow key={p.party_name} className={`hover:bg-muted/40 transition-colors ${isWinner ? 'bg-amber-50 dark:bg-amber-900/10' : ''}`}>
                                   <TableCell className="px-6 py-4">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground'}`}>{i + 1}</div>
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${isWinner ? 'bg-amber-500 text-white shadow-sm' : 'bg-muted text-muted-foreground'}`}>{i + 1}</div>
                                   </TableCell>
                                   <TableCell className="px-6 py-4">
                                     <div className="flex items-center gap-2">
                                       <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
                                       <p className="text-sm font-bold">{p.party_name}</p>
-                                      {i === 0 && <Medal className="h-4 w-4 text-amber-500" />}
+                                      {isWinner && <Medal className="h-4 w-4 text-amber-500" />}
                                     </div>
                                   </TableCell>
                                   <TableCell className="px-6 py-4 text-right font-bold">{p.seat_count}</TableCell>
                                 </TableRow>
-                              ))}
+                              )})}
                             </TableBody>
                           </Table>
                         </div>
                       )}
 
-                      {/* Overall vote comparison */}
-                      {overallResults.parties.length > 0 && (
-                        <ResultsSection
-                          summary={overallResults.summary}
-                          candidates={overallResults.parties}
-                          title="Party Vote Comparison"
-                          chartId="overall-pie"
-                        />
+                      {/* Party Seats: Pie Chart + Leaderboard */}
+                      {overallResults.party_seats.length > 0 && (
+                        <div className="bg-card border rounded-xl shadow-sm overflow-hidden mt-6">
+                          <div className="px-6 py-4 border-b bg-muted/30 flex items-center gap-3">
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                              Parliamentary Seats by Party
+                            </h2>
+                            <Badge variant="secondary" className="text-xs">
+                              {totalSeats} total
+                            </Badge>
+                          </div>
+
+                          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 p-6">
+                            {/* Pie Chart Wrapper */}
+                            <div className="w-[260px] md:w-[300px] flex-shrink-0 mx-auto md:mx-0">
+                               <ChartStyle id="overall-party-seats-pie" config={
+                                 overallResults.party_seats.reduce((acc, p, i) => {
+                                   acc[`p${i}`] = { label: p.party_name, color: PALETTE[i % PALETTE.length] };
+                                   return acc;
+                                 }, {} as ChartConfig)
+                               } />
+                              <ChartContainer
+                                id="overall-party-seats-pie"
+                                config={overallResults.party_seats.reduce((acc, p, i) => {
+                                   acc[`p${i}`] = { label: p.party_name, color: PALETTE[i % PALETTE.length] };
+                                   return acc;
+                                 }, {} as ChartConfig)}
+                                className="mx-auto aspect-square w-full max-w-[300px]"
+                              >
+                                <PieChart>
+                                  <ChartTooltip
+                                    cursor={false}
+                                    content={
+                                      <ChartTooltipContent
+                                        hideLabel
+                                        formatter={(value, name) => {
+                                          const entry = overallResults.party_seats[Number(String(name).replace('p', ''))];
+                                          return (
+                                            <span className="font-bold">
+                                              {entry?.party_name ?? name}:{' '}
+                                              {Number(value)} seat{Number(value) !== 1 ? 's' : ''}
+                                            </span>
+                                          );
+                                        }}
+                                      />
+                                    }
+                                  />
+                                  <PieWithActiveIndex
+                                    data={overallResults.party_seats.map((p, i) => ({
+                                      key: `p${i}`, party: p.party_name, seats: Number(p.seat_count), fill: `var(--color-p${i})`,
+                                    }))}
+                                    dataKey="seats"
+                                    nameKey="key"
+                                    innerRadius={60}
+                                    strokeWidth={5}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <Label
+                                      content={({ viewBox }) => {
+                                        if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
+                                          return (
+                                            <text
+                                              x={viewBox.cx}
+                                              y={viewBox.cy}
+                                              textAnchor="middle"
+                                              dominantBaseline="middle"
+                                            >
+                                              <tspan
+                                                x={viewBox.cx}
+                                                y={viewBox.cy}
+                                                className="fill-foreground text-3xl font-bold"
+                                              >
+                                                {totalSeats}
+                                              </tspan>
+                                              <tspan
+                                                x={viewBox.cx}
+                                                y={(viewBox.cy || 0) + 22}
+                                                className="fill-muted-foreground text-xs"
+                                              >
+                                                seats
+                                              </tspan>
+                                            </text>
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </PieWithActiveIndex>
+                                </PieChart>
+                              </ChartContainer>
+                            </div>
+
+                            {/* Party leaderboard */}
+                            <div className="flex-1 w-full space-y-3">
+                              {overallResults.party_seats.map((p, i) => {
+                                const pct = totalSeats === 0 ? 0 : Math.round((Number(p.seat_count) / totalSeats) * 100);
+                                const isWinner = winnerParty?.party_name === p.party_name;
+                                return (
+                                  <div
+                                    key={p.party_name}
+                                    className="w-full text-left rounded-lg p-3 transition-all border border-transparent hover:bg-muted/40"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <span
+                                        className="w-3 h-3 rounded-sm flex-shrink-0"
+                                        style={{ background: PALETTE[i % PALETTE.length] }}
+                                      />
+                                      <span className="font-semibold text-sm flex-1 truncate">{p.party_name}</span>
+                                      {isWinner && (
+                                        <Medal className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                                      )}
+                                      <span className="text-sm font-bold flex-shrink-0">
+                                        {p.seat_count} seat{Number(p.seat_count) !== 1 ? 's' : ''}
+                                      </span>
+                                    </div>
+                                    {/* Progress bar */}
+                                    <div className="mt-2 ml-6 h-1.5 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full transition-all duration-500"
+                                        style={{
+                                          width: `${pct}%`,
+                                          background: PALETTE[i % PALETTE.length],
+                                        }}
+                                      />
+                                    </div>
+                                    <p className="ml-6 mt-1 text-xs text-muted-foreground">{pct}% of seats</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
                   ) : (

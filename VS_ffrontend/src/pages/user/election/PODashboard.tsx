@@ -103,7 +103,7 @@ const PODashboard: React.FC<PODashboardProps> = ({
   const handleSendOtp = async (voeId: number) => {
     setOtpMap((prev) => ({ ...prev, [voeId]: { loading: true, otp: null } }));
     try {
-      const res = await fetch(`${API}/voter-allocation/${voeId}/generate-otp`, {
+      const res = await apiFetch(`${API}/voter-allocation/${voeId}/generate-otp`, {
         method: 'POST',
       });
       const data = await res.json();
