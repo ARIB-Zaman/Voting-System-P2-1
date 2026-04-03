@@ -21,6 +21,7 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { CheckCircle2, XCircle, UserPlus } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 interface PendingUser {
     id: string;
@@ -45,7 +46,7 @@ const PendingApprovals: React.FC = () => {
 
     const fetchPending = useCallback(async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/admin/pending', {
+            const res = await apiFetch('/api/admin/pending', {
                 credentials: 'include',
             });
             if (!res.ok) throw new Error('Failed to load pending users');
@@ -64,8 +65,8 @@ const PendingApprovals: React.FC = () => {
     const handleApprove = async (userId: string) => {
         setProcessing((prev) => new Set(prev).add(userId));
         try {
-            const res = await fetch(
-                `http://localhost:3001/api/admin/approve/${userId}`,
+            const res = await apiFetch(
+                `/api/admin/approve/${userId}`,
                 { method: 'POST', credentials: 'include' }
             );
             if (!res.ok) throw new Error('Approve failed');
@@ -84,8 +85,8 @@ const PendingApprovals: React.FC = () => {
     const handleReject = async (userId: string) => {
         setProcessing((prev) => new Set(prev).add(userId));
         try {
-            const res = await fetch(
-                `http://localhost:3001/api/admin/reject/${userId}`,
+            const res = await apiFetch(
+                `/api/admin/reject/${userId}`,
                 { method: 'POST', credentials: 'include' }
             );
             if (!res.ok) throw new Error('Reject failed');

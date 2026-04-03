@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 /**
  * GET /api/voter-allocation/center/:centerId/election/:electionId
  * Voters already allocated to a specific polling center for an election.
  */
-router.get("/center/:centerId/election/:electionId", async (req, res) => {
+router.get("/center/:centerId/election/:electionId",requireAuth, async (req, res) => {
   const { centerId, electionId } = req.params;
   try {
     const result = await pool.query(
@@ -37,8 +37,10 @@ router.get("/center/:centerId/election/:electionId", async (req, res) => {
  * Search unallocated voters in a constituency for manual selection.
  * "Unallocated" = not yet in voter_of_election for this election.
  */
-router.get("/search", async (req, res) => {
-  const { q = "", election_id, constituency_id, not_in_election, limit = "50" } = req.query;
+router.get("/search", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
+  const { q = "", election_id, constituency_id, limit = "50" } = req.query;
   if (!election_id || !constituency_id) {
     return res.status(400).json({ error: "election_id and constituency_id are required" });
   }
@@ -126,7 +128,7 @@ router.post("/manual", async (req, res) => {
  * using the DB function get_closest_unallocated_voters(center_id, election_id, count).
  * Body: { center_id, election_id, count, assigned_by }
  */
-router.post("/auto", async (req, res) => {
+router.post("/auto",requireAuth, async (req, res) => {
   const { center_id, election_id, count, assigned_by } = req.body;
   if (!center_id || !election_id || !count) {
     return res.status(400).json({ error: "center_id, election_id, and count are required" });
@@ -183,7 +185,7 @@ router.post("/auto", async (req, res) => {
  * Unassign all voters from a polling center (set center_id = NULL, booth_id = NULL),
  * keeping them in the election master list so they can be reassigned.
  */
-router.put("/center/:centerId/election/:electionId/unassign-all", async (req, res) => {
+router.delete("/center/:centerId/election/:electionId", requireAuth, async (req, res) => {
   const { centerId, electionId } = req.params;
   try {
     const result = await pool.query(
@@ -205,7 +207,16 @@ router.put("/center/:centerId/election/:electionId/unassign-all", async (req, re
  * Body: { nid, election_id }
  * NOTE: Must be registered BEFORE /:voeId so Express doesn't swallow it.
  */
-router.delete("/remove", async (req, res) => {
+router.delete("/remove", 
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { nid, election_id } = req.body;
 
   if (!nid || !election_id) {
@@ -251,7 +262,7 @@ router.delete("/remove", async (req, res) => {
  * Unassign a single voter from their polling center (set center_id = NULL, booth_id = NULL),
  * keeping them in the election master list so they can be reassigned.
  */
-router.put("/:voeId/unassign", async (req, res) => {
+router.delete("/:voeId",requireAuth, async (req, res) => {
   const { voeId } = req.params;
   if (!/^\d+$/.test(voeId)) {
     return res.status(404).json({ error: "Not found" });
@@ -282,7 +293,7 @@ router.put("/:voeId/unassign", async (req, res) => {
  * GET /api/voter-allocation/booth/:boothId/election/:electionId
  * Voters assigned to this specific booth (booth_id = boothId).
  */
-router.get("/booth/:boothId/election/:electionId", async (req, res) => {
+router.get("/booth/:boothId/election/:electionId",requireAuth, async (req, res) => {
   const { boothId, electionId } = req.params;
   try {
     const result = await pool.query(
@@ -314,7 +325,7 @@ router.get("/booth/:boothId/election/:electionId", async (req, res) => {
  * Calls the DB function generate_voter_otp(voter_of_election_id) which
  * inserts/updates voter_otp and returns the generated OTP string.
  */
-router.post("/:voeId/generate-otp", async (req, res) => {
+router.post("/:voeId/generate-otp",requireAuth, async (req, res) => {
   const { voeId } = req.params;
   try {
     const result = await pool.query(
@@ -336,7 +347,7 @@ router.post("/:voeId/generate-otp", async (req, res) => {
  * GET /api/voter-allocation/center/:centerId/election/:electionId/unassigned-booths
  * Voters allocated to a center but NOT yet assigned to any booth (booth_id IS NULL).
  */
-router.get("/center/:centerId/election/:electionId/unassigned-booths", async (req, res) => {
+router.get("/center/:centerId/election/:electionId/unassigned-booths",requireAuth, async (req, res) => {
   const { centerId, electionId } = req.params;
   const { q = "", limit = "100" } = req.query;
   try {
@@ -370,7 +381,7 @@ router.get("/center/:centerId/election/:electionId/unassigned-booths", async (re
  * Assign (or unassign) a voter to a booth.
  * Body: { booth_id: number | null }
  */
-router.put("/:voeId/booth", async (req, res) => {
+router.put("/:voeId/booth",requireAuth, async (req, res) => {
   const { voeId } = req.params;
   const { booth_id } = req.body;
   try {
@@ -393,7 +404,7 @@ router.put("/:voeId/booth", async (req, res) => {
  * Auto-distribute all unassigned voters (booth_id IS NULL) to booths
  * using the DB function distribute_unassigned_voters(center_id, election_id).
  */
-router.post("/center/:centerId/election/:electionId/distribute", async (req, res) => {
+router.post("/center/:centerId/election/:electionId/distribute",requireAuth, async (req, res) => {
   const { centerId, electionId } = req.params;
   try {
     const result = await pool.query(
@@ -419,7 +430,16 @@ router.post("/center/:centerId/election/:electionId/distribute", async (req, res
  * GET /api/voter-allocation/election/:electionId
  * Voters already assigned to the election master list.
  */
-router.get("/election/:electionId", async (req, res) => {
+router.get("/election/:electionId", 
+      requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { electionId } = req.params;
   try {
     const result = await pool.query(
@@ -451,14 +471,23 @@ router.get("/election/:electionId", async (req, res) => {
  * Manually assign a single voter to an election.
  * Body: { nid, election_id }
  */
-router.post("/add", async (req, res) => {
+router.post("/add", 
+    requireAuth, // first, verify JWT and attach req.user
+    async (req, res, next) => {
+        // 1️⃣ Admin bypass
+        if (req.user.role === "ADMIN") return next();
+
+        // 3️⃣ If none matched
+        return res.status(403).json({ error: "Forbidden" });
+    },
+  async (req, res) => {
   const { nid, election_id } = req.body;
   if (!nid || !election_id) {
     return res.status(400).json({ error: "nid and election_id are required" });
   }
   try {
     // 🔥 Get a valid ADMIN user ID for assigned_by
-    const adminResult = await pool.query('SELECT id FROM "user" WHERE role = \'ADMIN\' LIMIT 1');
+    const adminResult = await pool.query('SELECT id FROM "users" WHERE role = \'ADMIN\' LIMIT 1');
     if (adminResult.rows.length === 0) {
       return res.status(500).json({ error: "No admin user found to perform assignment" });
     }

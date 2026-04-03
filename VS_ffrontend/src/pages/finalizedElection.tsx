@@ -32,6 +32,7 @@ import {
   Trophy,
   Users,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ interface PartySeat {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
@@ -103,9 +104,9 @@ const FinalizedElection: React.FC = () => {
     setLoading(true);
     try {
       const [elecRes, coeRes, seatsRes] = await Promise.all([
-        fetch(`${API}/election/${id}`),
-        fetch(`${API}/election/${id}/constituency-winners`),
-        fetch(`${API}/election/${id}/party-seats`),
+        apiFetch(`${API}/election/${id}`),
+        apiFetch(`${API}/election/${id}/constituency-winners`),
+        apiFetch(`${API}/election/${id}/party-seats`),
       ]);
       if (!elecRes.ok) throw new Error('Failed to fetch election');
       if (!coeRes.ok) throw new Error('Failed to fetch constituencies');

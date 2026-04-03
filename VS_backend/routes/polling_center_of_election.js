@@ -1,10 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-
+const { requireAuth, requireRole, requireElectionRole } = require("../middleware/auth");
 // GET /election/:electionId/constituency/:constituencyId
 // Polling centers assigned to this election for a specific constituency, with PRO info
-router.get("/election/:electionId/constituency/:constituencyId", async (req, res) => {
+router.get("/election/:electionId/constituency/:constituencyId", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   try {
     const { electionId, constituencyId } = req.params;
 
@@ -20,7 +22,7 @@ router.get("/election/:electionId/constituency/:constituencyId", async (req, res
        JOIN polling_center pc ON pc.id = poe.polling_center_id
        LEFT JOIN role_map rm
          ON rm.relation_id = poe.id AND rm.role = 'PRO'
-       LEFT JOIN public."user" u ON u.id = rm.user_id
+       LEFT JOIN users u ON u.id = rm.user_id
        WHERE poe.election_id = $1
          AND pc.constituency_id = $2
        ORDER BY pc.name`,
@@ -35,7 +37,9 @@ router.get("/election/:electionId/constituency/:constituencyId", async (req, res
 });
 
 // POST / — bulk-insert polling centers into an election
-router.post("/", async (req, res) => {
+router.post("/", 
+  requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   try {
     const { election_id, polling_center_ids } = req.body;
 
@@ -65,7 +69,9 @@ router.post("/", async (req, res) => {
 });
 
 // DELETE /:poeId — remove a polling center from this election
-router.delete("/:poeId", async (req, res) => {
+router.delete("/:poeId", 
+  requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { poeId } = req.params;
   const client = await pool.connect();
 
@@ -101,7 +107,9 @@ router.delete("/:poeId", async (req, res) => {
 });
 
 // PUT /:poeId/pro — assign or unassign the PRO for a polling_center_of_election
-router.put("/:poeId/pro", async (req, res) => {
+router.put("/:poeId/pro", 
+      requireAuth, // first, verify JWT and attach req.user
+  async (req, res) => {
   const { poeId } = req.params;
   const { pro_id } = req.body;
   const client = await pool.connect();
@@ -164,7 +172,7 @@ router.put("/:poeId/pro", async (req, res) => {
        JOIN polling_center pc ON pc.id = poe.polling_center_id
        LEFT JOIN role_map rm
          ON rm.relation_id = poe.id AND rm.role = 'PRO'
-       LEFT JOIN public."user" u ON u.id = rm.user_id
+       LEFT JOIN users u ON u.id = rm.user_id
        WHERE poe.id = $1`,
       [poeId]
     );
