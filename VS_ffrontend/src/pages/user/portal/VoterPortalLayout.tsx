@@ -13,10 +13,10 @@ const VoterPortalLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Top bar */}
-      <header className="border-b bg-card shadow-sm sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+      <header className="h-16 border-b bg-sidebar shadow-sm sticky top-0 z-40">
+        <div className="container mx-auto h-full px-6 flex items-center justify-between">
           <button
             onClick={() => navigate('/voter-portal')}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -56,7 +56,7 @@ const VoterPortalLayout: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 border-t bg-card/50 text-center text-xs font-medium text-muted-foreground">
+      <footer className="py-8 border-t bg-card/50 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
         <p>&copy; 2026 Election Commission. Secure Voter Self-Service Portal.</p>
       </footer>
     </div>
