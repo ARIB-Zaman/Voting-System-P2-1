@@ -7,7 +7,7 @@ const { requireAuth, requireRole, requireElectionRole } = require("../middleware
  * POST /api/voters/add-voter
  * Add a single voter to the master list.
  */
-router.post("/add-voter", async (req, res) => {
+router.post("/add-voter",requireAuth, requireRole('ADMIN'), async (req, res) => {
     const { nid, name, phone, email, voter_type, constituency_id, lat, lng } = req.body;
 
     // Basic validation
@@ -50,7 +50,7 @@ router.post("/add-voter", async (req, res) => {
  * POST /api/voters/bulk-upload-voters
  * Add multiple voters. Skip if NID exists.
  */
-router.post("/bulk-upload-voters", async (req, res) => {
+router.post("/bulk-upload-voters",requireAuth, requireRole('ADMIN'), async (req, res) => {
     const { voters } = req.body;
 
     if (!Array.isArray(voters) || voters.length === 0) {
@@ -176,7 +176,7 @@ router.get("/", async (req, res) => {
  * PUT /api/voters/:nid
  * Update voter details.
  */
-router.put("/:nid", async (req, res) => {
+router.put("/:nid", requireAuth, requireRole('ADMIN'), async (req, res) => {
     const { nid } = req.params;
     const { name, phone, email, voter_type, constituency_id, lat, lng } = req.body;
 

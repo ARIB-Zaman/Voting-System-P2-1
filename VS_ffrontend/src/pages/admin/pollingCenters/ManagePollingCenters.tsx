@@ -20,8 +20,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Building2, Edit3, MapPin, Search, Trash2 } from 'lucide-react';
+import { apiFetch } from '@/lib/auth-client';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const PAGE_SIZE = 20;
 
 interface PollingCenter {
@@ -63,7 +64,7 @@ const ManagePollingCenters: React.FC = () => {
       const params = new URLSearchParams();
       if (filterConstituency !== 'all') params.set('constituency_id', filterConstituency);
       if (search.trim()) params.set('q', search.trim());
-      const res = await fetch(`${API}/admin-polling-centers?${params}`);
+      const res = await apiFetch(`${API}/admin-polling-centers?${params}`);
       if (!res.ok) throw new Error('Failed to fetch polling centers');
       setCenters(await res.json());
       setPage(1);
@@ -75,7 +76,7 @@ const ManagePollingCenters: React.FC = () => {
   }, [search, filterConstituency]);
 
   useEffect(() => {
-    fetch(`${API}/constituency`).then((r) => r.json()).then(setConstituencies).catch(() => {});
+    apiFetch(`${API}/constituency`).then((r) => r.json()).then(setConstituencies).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -87,7 +88,7 @@ const ManagePollingCenters: React.FC = () => {
   const handleDelete = async (id: number) => {
     setDeletingId(id);
     try {
-      const res = await fetch(`${API}/admin-polling-centers/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API}/admin-polling-centers/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Delete failed');
       toast.success(data.message);
@@ -120,7 +121,7 @@ const ManagePollingCenters: React.FC = () => {
     }
     setSaving(true);
     try {
-      const res = await fetch(`${API}/admin-polling-centers/${editCenter.id}`, {
+      const res = await apiFetch(`${API}/admin-polling-centers/${editCenter.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

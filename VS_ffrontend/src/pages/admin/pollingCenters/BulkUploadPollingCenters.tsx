@@ -12,8 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { apiFetch } from '@/lib/auth-client';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 interface CSVRow {
   name: string;
@@ -94,7 +95,7 @@ const BulkUploadPollingCenters: React.FC = () => {
     setUploadResults(null);
 
     try {
-      const res = await fetch(`${API}/admin-polling-centers/bulk`, {
+      const res = await apiFetch(`${API}/admin-polling-centers/bulk`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

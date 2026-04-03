@@ -12,6 +12,7 @@ import L from 'leaflet';
 // Fix for default Leaflet marker icons in React
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { apiFetch } from '@/lib/auth-client';
 const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -20,7 +21,7 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const DEFAULT_CENTER: [number, number] = [23.6850, 90.3563]; // Bangladesh center
 
 function MapClickHandler({ setCoordinates }: { setCoordinates: (lat: number, lng: number) => void }) {
@@ -116,7 +117,7 @@ export default function AddConstituency() {
     setSubmitting(true);
 
     try {
-      const res = await fetch(`${API}/constituency`, {
+      const res = await apiFetch(`${API}/constituency`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

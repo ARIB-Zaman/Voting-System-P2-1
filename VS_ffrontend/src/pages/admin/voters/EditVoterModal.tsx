@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/auth-client';
 
 interface Voter {
     nid: string;
@@ -41,7 +42,7 @@ const EditVoterModal: React.FC<EditVoterModalProps> = ({ voter, open, onClose, o
         setLoading(true);
 
         try {
-            const res = await fetch(`http://localhost:3001/api/voters/${form.nid}`, {
+            const res = await apiFetch(`/api/voters/${form.nid}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form)
