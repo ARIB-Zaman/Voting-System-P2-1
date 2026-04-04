@@ -45,7 +45,6 @@ import KioskConstituencies from './pages/kiosk/KioskConstituencies';
 import KioskPollingCenters from './pages/kiosk/KioskPollingCenters';
 import KioskBooths from './pages/kiosk/KioskBooths';
 import KioskVoting from './pages/kiosk/KioskVoting';
-import VoterDashboard from './pages/user/election/VoterDashboard';
 import VoterPortalLayout from './pages/user/portal/VoterPortalLayout';
 import VoterPortalLogin from './pages/user/portal/VoterPortalLogin';
 import VoterPortalDashboard from './pages/user/portal/VoterPortalDashboard';
@@ -202,11 +201,6 @@ function App() {
                 },
                 // ── USER resources ────────────────────────────────────────────
                 {
-                  name: 'voter-dashboard',
-                  list: '/homeUSER/voter-dashboard',
-                  meta: { label: 'Voter Dashboard', icon: <Earth />, role: 'USER', hideInOfficerMode: true },
-                },
-                {
                   name: 'user-dashboard',
                   list: '/homeUSER',
                   meta: { label: 'Officer Dashboard', icon: <Shield />, role: 'USER' },
@@ -283,7 +277,6 @@ function App() {
                     <Route path="/homeUSER">
                       <Route index element={<UserDashboard />} />
                       <Route path="election/:id" element={<ElectionEntry />} />
-                      <Route path="voter-dashboard" element={<VoterDashboard />} />
                     </Route>
                   </Route>
 
