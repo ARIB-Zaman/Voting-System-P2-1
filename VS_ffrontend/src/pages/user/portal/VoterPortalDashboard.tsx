@@ -24,6 +24,21 @@ import {
 } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default Leaflet marker icons in React
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 // recharts omits `activeIndex` from its Pie types even though it's a valid runtime prop
 const PieWithActiveIndex = Pie as any;
@@ -368,6 +383,7 @@ const VoterPortalDashboard: React.FC = () => {
     setConstResults(null);
     setOverallResults(null);
     setVerifiedVote(null);
+    setDetails(null);
     try {
       const election = elections.find(e => String(e.election_id) === electionId);
       const detailsRes = await fetch(`${API}/details?nid=${voterNid}&election_id=${electionId}`);
@@ -952,12 +968,20 @@ const VoterPortalDashboard: React.FC = () => {
                 </div>
 
                 {/* Map */}
-                <div className="bg-card border rounded-xl overflow-hidden shadow-sm aspect-video relative">
+                <div className="bg-card border rounded-xl overflow-hidden shadow-sm aspect-video relative z-0">
                   {details?.lat && details?.lng ? (
-                    <iframe width="100%" height="100%" style={{ border: 0 }} title="Polling Center"
-                      loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY_HERE&q=${details.lat},${details.lng}&zoom=15`}
-                    />
+                    <MapContainer
+                      center={[Number(details.lat), Number(details.lng)]}
+                      zoom={15}
+                      scrollWheelZoom={false}
+                      style={{ height: '100%', width: '100%' }}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <Marker position={[Number(details.lat), Number(details.lng)]} />
+                    </MapContainer>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/30 bg-muted/10">
                       <MapPin className="h-16 w-16 mb-2 opacity-10" />
