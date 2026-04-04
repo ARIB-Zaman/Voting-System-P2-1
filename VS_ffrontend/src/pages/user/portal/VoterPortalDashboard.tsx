@@ -471,15 +471,8 @@ const VoterPortalDashboard: React.FC = () => {
 
   return (
     <>
-      {/* ── Print Styles ─────────────────────────────────────────────────── */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          body > * { display: none !important; }
-          #voter-slip-print { display: block !important; position: fixed; inset: 0; background: white; z-index: 9999; }
-        }
-      ` }} />
+      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 print:hidden">
 
-      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1028,8 +1021,7 @@ const VoterPortalDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* ── Print Voter Slip ─────────────────────────────────────────────── */}
-      <div id="voter-slip-print" style={{ display: 'none' }}>
+      <div id="voter-slip-print" className="hidden print:block w-full max-w-2xl mx-auto bg-white text-black p-8">
         <div style={{ fontFamily: 'sans-serif', maxWidth: 600, margin: '0 auto', padding: 32, color: '#000', background: '#fff' }}>
           {/* Header */}
           <div style={{ textAlign: 'center', borderBottom: '3px solid #000', paddingBottom: 16, marginBottom: 24 }}>
