@@ -27,6 +27,7 @@ import { apiFetch } from '@/lib/auth-client';
 interface PODashboardProps {
   electionId: string | number;
   boothId: string | number;
+  boothNumber: string | number;
   electionName: string;
   locationLabel: string | null;
   startDate: string;
@@ -59,6 +60,7 @@ const formatDate = (iso: string) =>
 const PODashboard: React.FC<PODashboardProps> = ({
   electionId,
   boothId,
+  boothNumber,
   electionName,
   locationLabel,
   startDate,
@@ -163,7 +165,7 @@ const PODashboard: React.FC<PODashboardProps> = ({
             </div>
             <div className="bg-primary/5 border border-primary/10 rounded-lg px-4 py-3 text-right flex-shrink-0">
               <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Assigned Booth</p>
-              <p className="text-lg font-black text-primary">#{boothId}</p>
+              <p className="text-lg font-black text-primary">#{boothNumber}</p>
             </div>
           </CardContent>
         </Card>

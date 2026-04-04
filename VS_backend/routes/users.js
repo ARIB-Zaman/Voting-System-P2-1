@@ -37,6 +37,7 @@ router.get("/my-elections",
     const rows = await Promise.all(
       rmResult.rows.map(async (row) => {
         let location_label = null;
+        let booth_number_val = null;
 
         if (row.role === 'RO') {
           const r = await pool.query(
@@ -73,6 +74,7 @@ router.get("/my-elections",
           if (r.rows[0]) {
             const { booth_number, center_name } = r.rows[0];
             location_label = `Booth #${booth_number} — ${center_name}`;
+            booth_number_val = booth_number;
           }
         }
 
@@ -104,6 +106,7 @@ router.get("/my-elections",
           end_date: row.end_date,
           role: row.role,
           location_label,
+          booth_number: booth_number_val,
           coe_id,
           constituency_name,
           poe_id,

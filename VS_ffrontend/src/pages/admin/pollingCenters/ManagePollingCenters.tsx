@@ -209,14 +209,13 @@ const ManagePollingCenters: React.FC = () => {
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase">Name</TableHead>
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase">Address</TableHead>
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase">Constituency</TableHead>
-                  <TableHead className="px-6 py-3 text-xs font-bold uppercase">Coordinates</TableHead>
                   <TableHead className="px-6 py-3 text-xs font-bold uppercase text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginated.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-16 text-muted-foreground">
+                    <TableCell colSpan={4} className="text-center py-16 text-muted-foreground">
                       <div className="flex flex-col items-center gap-2">
                         <Building2 className="h-10 w-10 opacity-20" />
                         <p className="font-medium">No polling centers found</p>
@@ -235,16 +234,6 @@ const ManagePollingCenters: React.FC = () => {
                         <Badge variant="outline" className="text-xs">
                           {c.constituency_name ?? `#${c.constituency_id}`}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 text-xs text-muted-foreground font-mono">
-                        {c.lat != null && c.lng != null ? (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {Number(c.lat).toFixed(4)}, {Number(c.lng).toFixed(4)}
-                          </span>
-                        ) : (
-                          <span className="italic">—</span>
-                        )}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
                         <div className="flex gap-1 justify-end">

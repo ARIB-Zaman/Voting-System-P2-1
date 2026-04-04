@@ -254,21 +254,20 @@ export default function ManageConstituencies() {
               <TableHead className="font-bold uppercase text-xs">ID</TableHead>
               <TableHead className="font-bold uppercase text-xs">Constituency Name</TableHead>
               <TableHead className="font-bold uppercase text-xs">Region</TableHead>
-              <TableHead className="font-bold uppercase text-xs text-right">Coordinates</TableHead>
               <TableHead className="font-bold uppercase text-xs text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
                   <Spinner className="size-6 mx-auto mb-2 opacity-50" />
                   Loading constituencies...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
                   No constituencies found matching "{searchTerm}"
                 </TableCell>
               </TableRow>
@@ -278,9 +277,6 @@ export default function ManageConstituencies() {
                   <TableCell className="font-mono text-xs text-muted-foreground">#{c.id}</TableCell>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell className="text-muted-foreground">{c.region}</TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                    {c.lat != null && c.lng != null ? `${c.lat}, ${c.lng}` : '-'}
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(c)} className="h-8 px-2">

@@ -19,6 +19,7 @@ interface Voter {
     email: string;
     voter_type: string;
     constituency_id: number;
+    constituency_name?: string;
     lat: string;
     lng: string;
 }
@@ -79,13 +80,13 @@ const ManageVoters = () => {
 
     useEffect(() => {
         // Fetch constituencies
-        fetch('/api/constituency')
+        apiFetch('/api/constituency')
             .then(res => res.json())
             .then(data => setConstituencies(data))
             .catch(err => console.error(err));
 
         // Fetch elections
-        fetch('/api/election')
+        apiFetch('/api/election')
             .then(res => res.json())
             .then(data => setElections(data))
             .catch(err => console.error(err));
@@ -94,7 +95,7 @@ const ManageVoters = () => {
     const handleDelete = async () => {
         if (!deletingVoterNid) return;
         try {
-            const res = await fetch(`http://localhost:3001/api/voters/${deletingVoterNid}`, {
+            const res = await apiFetch(`/api/voters/${deletingVoterNid}`, {
                 method: 'DELETE'
             });
             const data = await res.json();
@@ -213,7 +214,7 @@ const ManageVoters = () => {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {constituencies.find(c => c.id === voter.constituency_id)?.name || voter.constituency_id}
+                                                    {voter.constituency_name || constituencies.find(c => c.id === voter.constituency_id)?.name || voter.constituency_id}
                                                 </TableCell>
                                                 <TableCell className="text-right pr-6">
                                                     <div className="flex justify-end gap-2">
