@@ -131,12 +131,14 @@ router.get("/", async (req, res) => {
         const limitNum = parseInt(limit);
         const offset = (pageNum - 1) * limitNum;
 
-        let baseQuery = "FROM voter v WHERE 1=1";
+        let baseQuery = "FROM voter v LEFT JOIN constituency c ON v.constituency_id = c.id";
         const params = [];
 
         if (election_id && election_id !== 'all') {
-            baseQuery = "FROM voter v JOIN voter_of_election voe ON v.nid = voe.nid WHERE voe.election_id = $" + (params.length + 1);
+            baseQuery += " JOIN voter_of_election voe ON v.nid = voe.nid WHERE voe.election_id = $" + (params.length + 1);
             params.push(election_id);
+        } else {
+            baseQuery += " WHERE 1=1";
         }
 
         if (search) {
@@ -153,7 +155,7 @@ router.get("/", async (req, res) => {
         const total = parseInt(countRes.rows[0].total || 0);
 
         const dataRes = await pool.query(
-            `SELECT v.* ${baseQuery} ORDER BY v.name ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+            `SELECT v.*, c.name as constituency_name ${baseQuery} ORDER BY v.name ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
             [...params, limitNum, offset]
         );
 

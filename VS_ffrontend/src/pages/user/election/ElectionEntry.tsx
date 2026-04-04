@@ -26,6 +26,8 @@ interface ElectionAssignment {
   polling_center_id: number | null;
   /** polling_booth.id — present only when role === 'PO' */
   booth_id: string | number | null;
+  /** logical booth number — present only when role === 'PO' */
+  booth_number: string | number | null;
 }
 
 /**
@@ -56,7 +58,7 @@ const ElectionEntry: React.FC = () => {
         } else {
           setAssignment(match);
         }
-        setLoading(false);
+        loading && setLoading(false);
       })
       .catch((err) => {
         setError(err.message);
@@ -112,7 +114,7 @@ const ElectionEntry: React.FC = () => {
       />
     );
   }
-  return <PODashboard {...sharedProps} electionId={assignment.election_id} boothId={assignment.booth_id!} />;
+  return <PODashboard {...sharedProps} electionId={assignment.election_id} boothId={assignment.booth_id!} boothNumber={assignment.booth_number ?? assignment.booth_id!} />;
 };
 
 export default ElectionEntry;
