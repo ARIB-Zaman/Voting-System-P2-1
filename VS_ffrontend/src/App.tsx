@@ -14,7 +14,8 @@ import { ThemeProvider } from './components/refine-ui/theme/theme-provider';
 import { dataProvider } from './providers/data';
 import { authProvider } from './providers/auth-provider';
 import Dashboard from './pages/dashboardav';
-import { ClipboardCheck, Home, Shield, Users, Building2, Earth } from 'lucide-react';
+import { ClipboardCheck, Home, Shield, Users, Building2, Earth, Flame } from 'lucide-react';
+import VoterHeatmap from './pages/admin/analytics/VoterHeatmap';
 import { Layout } from './components/refine-ui/layout/layout';
 import CreateElection from './pages/createElection';
 import ElectionDetailsAD from './pages/electionDetailsAD';
@@ -199,6 +200,11 @@ function App() {
                   list: '/homeAdmin/polling-centers/manage',
                   meta: { label: 'Manage', parent: 'polling-centers', role: 'ADMIN' },
                 },
+                {
+                  name: 'analytics-heatmap',
+                  list: '/homeAdmin/analytics/voter-heatmap',
+                  meta: { label: 'Voter Heatmap', icon: <Flame />, role: 'ADMIN' },
+                },
                 // ── USER resources ────────────────────────────────────────────
                 {
                   name: 'user-dashboard',
@@ -265,6 +271,9 @@ function App() {
                         <Route path="add" element={<AddPollingCenter />} />
                         <Route path="bulk" element={<BulkUploadPollingCenters />} />
                         <Route path="manage" element={<ManagePollingCenters />} />
+                      </Route>
+                      <Route path="analytics">
+                        <Route path="voter-heatmap" element={<VoterHeatmap />} />
                       </Route>
                     </Route>
                     <Route path="/userslist">

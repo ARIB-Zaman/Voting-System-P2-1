@@ -38,6 +38,7 @@ app.use("/api/admin-polling-centers", require("./routes/adminPollingCenters"));
 app.use("/api/kiosk", require("./routes/kiosk"));
 app.use("/api/voter", require("./routes/voterDashboard"));
 app.use("/api/voter-portal", require("./routes/voterPortal"));
+app.use("/api/analytics", require("./routes/analytics"));
 
 // ── Sign-up (public) & Admin approval ────────────────────────────────────────
 app.use("/api/signup", require("./routes/signup"));
