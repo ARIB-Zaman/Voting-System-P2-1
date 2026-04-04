@@ -386,6 +386,11 @@ const ElectionDetailsAD: React.FC = () => {
       setElection(updated);
       setEditingInfo(false);
       toast.success('Election updated');
+
+      // If status was changed to CLOSED, redirect to the closed election results page
+      if (updated.status === 'CLOSED') {
+        navigate(`/homeAdmin/closedElection/${election.election_id}`);
+      }
     } catch {
       toast.error('Failed to update election');
     } finally {
@@ -734,7 +739,7 @@ const ElectionDetailsAD: React.FC = () => {
                   <SelectItem value="PLANNED">Scheduled</SelectItem>
                   <SelectItem value="LIVE">Active</SelectItem>
                   <SelectItem value="CLOSED">Completed</SelectItem>
-                  <SelectItem value="FINALIZED">Finalized</SelectItem>
+                  {/*<SelectItem value="FINALIZED">Finalized</SelectItem>*/}
                 </SelectContent>
               </Select>
             ) : (

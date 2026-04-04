@@ -3,6 +3,7 @@ import { ListView } from '@/components/refine-ui/views/list-view'
 import { Card,  CardContent,  CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import React from 'react'
+import { useNavigate } from 'react-router'
 import {
   Field,
   FieldGroup,
@@ -24,6 +25,7 @@ import { apiFetch } from '@/lib/auth-client'
 
 
 const CreateElection = () => {
+  const navigate = useNavigate()
   const [name, setName] = React.useState("")
   const [description, setDescription] = React.useState("")
 
@@ -147,6 +149,7 @@ const CreateElection = () => {
       })
           
       toast.success("Election created successfully")
+      navigate('/homeAdmin')
     } catch (err) {
       console.error(err)
       toast.error("Failed to create election")
