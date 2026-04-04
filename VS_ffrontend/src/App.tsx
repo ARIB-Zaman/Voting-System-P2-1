@@ -14,9 +14,10 @@ import { ThemeProvider } from './components/refine-ui/theme/theme-provider';
 import { dataProvider } from './providers/data';
 import { authProvider } from './providers/auth-provider';
 import Dashboard from './pages/dashboardav';
-import { ClipboardCheck, Home, Shield, Users, Building2, Earth, Flame, ShieldCheck } from 'lucide-react';
+import { ClipboardCheck, Home, Shield, Users, Building2, Earth, Flame, ShieldCheck, AlertTriangle } from 'lucide-react';
 import VoterHeatmap from './pages/admin/analytics/VoterHeatmap';
 import VoteIntegrityFunnel from './pages/admin/analytics/VoteIntegrityFunnel';
+import VelocityAlerts from './pages/admin/analytics/VelocityAlerts';
 import { Layout } from './components/refine-ui/layout/layout';
 import CreateElection from './pages/createElection';
 import ElectionDetailsAD from './pages/electionDetailsAD';
@@ -211,6 +212,11 @@ function App() {
                   list: '/homeAdmin/analytics/vote-integrity',
                   meta: { label: 'Vote Integrity', icon: <ShieldCheck />, role: 'ADMIN' },
                 },
+                {
+                  name: 'analytics-velocity',
+                  list: '/homeAdmin/analytics/velocity-alerts',
+                  meta: { label: 'Velocity Alerts', icon: <AlertTriangle />, role: 'ADMIN' },
+                },
                 // ── USER resources ────────────────────────────────────────────
                 {
                   name: 'user-dashboard',
@@ -281,6 +287,7 @@ function App() {
                       <Route path="analytics">
                         <Route path="voter-heatmap" element={<VoterHeatmap />} />
                         <Route path="vote-integrity" element={<VoteIntegrityFunnel />} />
+                        <Route path="velocity-alerts" element={<VelocityAlerts />} />
                       </Route>
                     </Route>
                     <Route path="/userslist">
