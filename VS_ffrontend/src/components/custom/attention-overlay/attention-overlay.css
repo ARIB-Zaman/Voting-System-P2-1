@@ -1,0 +1,333 @@
+/* ============================================================
+   Attention Overlay – attention-overlay.css
+   Floating PiP-style video cards, portal-mounted above all UI.
+   Zero layout impact: everything uses position:fixed / z-index.
+   ============================================================ */
+
+/* ── Root layer container ─────────────────────────────────── */
+.ao-root {
+  /* Sits above z-40 header */
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none; /* pass all clicks through by default */
+
+  /* Not visible by default */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.35s step-end;
+}
+
+.ao-root--visible {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0s step-start;
+}
+
+/* ── Translucent backdrop ────────────────────────────────── */
+/* Very subtle — just enough to frame the videos */
+.ao-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.08);
+  pointer-events: none; /* pass-through */
+}
+
+/* ── Dismiss button ──────────────────────────────────────── */
+.ao-dismiss {
+  position: fixed;
+  top: 72px; /* just below header (h-16 = 64px + 8px margin) */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  pointer-events: auto; /* interactive */
+  transition: background 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
+  z-index: 10001;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.ao-dismiss:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateX(-50%) scale(1.04);
+}
+
+.ao-dismiss:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+/* ── Video cards (shared base) ───────────────────────────── */
+.ao-video-card {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%) translateX(var(--ao-slide-x, 0px));
+  width: clamp(140px, 14vw, 220px);
+  /* 9:16 aspect ratio */
+  aspect-ratio: 9 / 16;
+  border-radius: 20px;
+  overflow: hidden;
+  pointer-events: auto; /* interactive so user can pause/mute */
+
+  /* Glassmorphism shell */
+  background: rgba(10, 10, 20, 0.85);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.3),
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 0 60px -15px var(--ao-accent, #6366f1);
+
+  /* Entrance animation */
+  opacity: 0;
+  transition:
+    opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease;
+}
+
+.ao-video-card[data-visible='true'] {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0px);
+}
+
+/* Left card — anchor to left edge */
+.ao-video-card--left {
+  left: 16px;
+  --ao-slide-x: -60px;
+}
+
+/* Right card — anchor to right edge */
+.ao-video-card--right {
+  right: 16px;
+  --ao-slide-x: 60px;
+}
+
+/* Hover lift */
+.ao-video-card:hover {
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.3),
+    0 16px 48px rgba(0, 0, 0, 0.65),
+    0 0 80px -10px var(--ao-accent, #6366f1);
+  transform: translateY(calc(-50% - 4px)) translateX(0px) scale(1.02);
+}
+
+/* ── Glow ring (animated accent border) ─────────────────── */
+.ao-glow-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 2px solid var(--ao-accent, #6366f1);
+  opacity: 0.5;
+  pointer-events: none;
+  animation: ao-pulse-ring 2.8s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes ao-pulse-ring {
+  0%, 100% { opacity: 0.35; box-shadow: 0 0 0 0 var(--ao-accent); }
+  50% { opacity: 0.7; box-shadow: 0 0 12px 3px var(--ao-accent); }
+}
+
+/* ── Video element ───────────────────────────────────────── */
+.ao-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+}
+
+/* ── Bottom scrim gradient ───────────────────────────────── */
+.ao-scrim {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 0 0 20px 20px;
+}
+
+/* ── HUD (label + mute button) ───────────────────────────── */
+.ao-hud {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.ao-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-mute-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  flex-shrink: 0;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.ao-mute-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
+}
+
+/* ── Trigger button (header) ─────────────────────────────── */
+/* The attention button itself lives in header.tsx but its
+   "recovered" badge and shimmer are defined here for consistency */
+
+.ao-trigger-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: 1.5px solid;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+
+  /* Default (idle) appearance */
+  background: linear-gradient(135deg, #7c3aed22, #6366f122);
+  border-color: #7c3aed55;
+  color: #7c3aed;
+}
+
+.dark .ao-trigger-btn {
+  background: linear-gradient(135deg, #a78bfa22, #818cf822);
+  border-color: #a78bfa55;
+  color: #a78bfa;
+}
+
+.ao-trigger-btn:hover {
+  background: linear-gradient(135deg, #7c3aed33, #6366f133);
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.35);
+  transform: scale(1.04);
+}
+
+.ao-trigger-btn:active {
+  transform: scale(0.97);
+}
+
+/* Active / overlay-open state */
+.ao-trigger-btn--active {
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  border-color: #7c3aed;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+}
+
+/* Shimmer sweep on the button */
+.ao-trigger-btn::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.25),
+    transparent
+  );
+  transform: skewX(-20deg);
+  animation: ao-shimmer 3.5s infinite;
+}
+
+@keyframes ao-shimmer {
+  0% { left: -100%; }
+  50%, 100% { left: 150%; }
+}
+
+/* ── "Attention Recovered" toast badge ───────────────────── */
+.ao-recovered-badge {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 8px 20px;
+  border-radius: 999px;
+  box-shadow: 0 4px 24px rgba(34, 197, 94, 0.5);
+  z-index: 10002;
+  pointer-events: none;
+  white-space: nowrap;
+
+  animation: ao-badge-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+             ao-badge-out 0.4s 2.6s ease-in forwards;
+}
+
+@keyframes ao-badge-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-16px) scale(0.9); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0px) scale(1); }
+}
+
+@keyframes ao-badge-out {
+  from { opacity: 1; transform: translateX(-50%) translateY(0px) scale(1); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(0.9); }
+}
+
+/* ── Responsive tweaks ───────────────────────────────────── */
+@media (max-width: 640px) {
+  .ao-video-card {
+    width: clamp(110px, 28vw, 160px);
+  }
+
+  .ao-dismiss {
+    font-size: 0.65rem;
+    padding: 5px 12px;
+  }
+}

@@ -14,7 +14,8 @@ import {
   useLogout,
   useLink,
 } from "@refinedev/core";
-import { LogOutIcon, Origami } from "lucide-react";
+import { LogOutIcon, Origami, BrainCircuit } from "lucide-react";
+import { useAttentionOverlayContext, AttentionRecoveredBadge } from "@/components/custom/attention-overlay";
 
 interface Identity {
   role?: string;
@@ -32,6 +33,9 @@ export const Header = () => {
 };
 
 function DesktopHeader() {
+  const { overlayState, isRecovered, triggerAttention } = useAttentionOverlayContext();
+  const isActive = overlayState === 'visible';
+
   return (
     <header
       className={cn(
@@ -50,6 +54,22 @@ function DesktopHeader() {
         "z-40"
       )}
     >
+      {/* Attention Recovered toast badge */}
+      <AttentionRecoveredBadge visible={isRecovered} />
+
+      {/* "I'm Losing Attention" button */}
+      <button
+        id="ao-trigger-button"
+        className={cn('ao-trigger-btn', { 'ao-trigger-btn--active': isActive })}
+        onClick={triggerAttention}
+        aria-pressed={isActive}
+        aria-label={isActive ? 'Close attention overlay' : "I'm losing attention — bring it back"}
+        title={isActive ? 'Close videos' : "I'm Losing Attention"}
+      >
+        <BrainCircuit size={15} />
+        <span>{isActive ? 'Close Videos' : "I'm Losing Attention"}</span>
+      </button>
+
       <ThemeToggle />
       <UserDropdown />
     </header>
