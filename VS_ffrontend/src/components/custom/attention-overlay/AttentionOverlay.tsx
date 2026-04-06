@@ -189,19 +189,6 @@ export function AttentionOverlay() {
       {/* Subtle translucent backdrop — pass-through for clicks */}
       <div className="ao-backdrop" aria-hidden="true" />
 
-      {/* Center dismiss pill */}
-      {visible && (
-        <button
-          id="ao-dismiss-btn"
-          className="ao-dismiss"
-          onClick={dismissOverlay}
-          aria-label="Close attention overlay"
-          title="Close"
-        >
-          <X size={16} />
-          <span>Close</span>
-        </button>
-      )}
 
       {/* Floating video cards */}
       {VIDEO_SOURCES.map((v) => (

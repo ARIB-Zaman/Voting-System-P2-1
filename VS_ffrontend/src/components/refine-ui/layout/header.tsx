@@ -5,6 +5,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -14,11 +16,13 @@ import {
   useLogout,
   useLink,
 } from "@refinedev/core";
-import { LogOutIcon, Origami, BrainCircuit } from "lucide-react";
+import { LogOutIcon, Origami, BrainCircuit, BriefcaseMedical, Smile } from "lucide-react";
 import { useAttentionOverlayContext, AttentionRecoveredBadge } from "@/components/custom/attention-overlay";
 
 interface Identity {
   role?: string;
+  name?: string;
+  email?: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -64,10 +68,10 @@ function DesktopHeader() {
         onClick={triggerAttention}
         aria-pressed={isActive}
         aria-label={isActive ? 'Close attention overlay' : "I'm losing attention — bring it back"}
-        title={isActive ? 'Close videos' : "I'm Losing Attention"}
+        title={isActive ? 'I\'m Happy' : "I'm Losing Attention"}
       >
-        <BrainCircuit size={15} />
-        <span>{isActive ? 'Close Videos' : "I'm Losing Attention"}</span>
+        {isActive ? <Smile size={20} /> : <BriefcaseMedical size={20} />}
+        <span>{isActive ? 'I\'m Happy' : "I'm Losing Attention"}</span>
       </button>
 
       <ThemeToggle />
@@ -153,6 +157,7 @@ function MobileHeader() {
 }
 
 const UserDropdown = () => {
+  const { data: identity } = useGetIdentity<Identity>();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
 
   const authProvider = useActiveAuthProvider();
@@ -167,6 +172,19 @@ const UserDropdown = () => {
         <UserAvatar />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {identity?.name && (
+          <>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{identity.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {identity.email}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem
           onClick={() => {
             logout();

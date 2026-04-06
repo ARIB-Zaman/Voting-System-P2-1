@@ -102,17 +102,18 @@
 .ao-video-card[data-visible='true'] {
   opacity: 1;
   transform: translateY(-50%) translateX(0px);
+  scale: 1.25;
 }
 
 /* Left card — anchor to left edge */
 .ao-video-card--left {
-  left: 16px;
+  left: 35px;
   --ao-slide-x: -60px;
 }
 
 /* Right card — anchor to right edge */
 .ao-video-card--right {
-  right: 16px;
+  right: 35px;
   --ao-slide-x: 60px;
 }
 
@@ -219,11 +220,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  height: 34px;
+  gap: 8px;
+  padding: 10px 18px;
+  height: 44px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -237,20 +238,20 @@
   overflow: hidden;
 
   /* Default (idle) appearance */
-  background: linear-gradient(135deg, #7c3aed22, #6366f122);
-  border-color: #7c3aed55;
-  color: #7c3aed;
+  background: linear-gradient(135deg, #f9731622, #fb923c22);
+  border-color: #f9731655;
+  color: #f97316;
 }
 
 .dark .ao-trigger-btn {
-  background: linear-gradient(135deg, #a78bfa22, #818cf822);
-  border-color: #a78bfa55;
-  color: #a78bfa;
+  background: linear-gradient(135deg, #fb923c22, #fdba7422);
+  border-color: #fb923c55;
+  color: #fb923c;
 }
 
 .ao-trigger-btn:hover {
-  background: linear-gradient(135deg, #7c3aed33, #6366f133);
-  box-shadow: 0 0 18px rgba(99, 102, 241, 0.35);
+  background: linear-gradient(135deg, #f9731633, #fb923c33);
+  box-shadow: 0 0 18px rgba(249, 115, 22, 0.4);
   transform: scale(1.04);
 }
 
@@ -259,11 +260,19 @@
 }
 
 /* Active / overlay-open state */
-.ao-trigger-btn--active {
-  background: linear-gradient(135deg, #7c3aed, #6366f1);
-  border-color: #7c3aed;
+.ao-trigger-btn.ao-trigger-btn--active,
+.dark .ao-trigger-btn.ao-trigger-btn--active {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border-color: #22c55e;
   color: #fff;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+}
+
+.ao-trigger-btn.ao-trigger-btn--active:hover,
+.dark .ao-trigger-btn.ao-trigger-btn--active:hover {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.8);
+  transform: scale(1.04);
 }
 
 /* Shimmer sweep on the button */
